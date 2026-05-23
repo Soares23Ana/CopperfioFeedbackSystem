@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "547053282951",
+    "project_id": "pic-2026",
+    "storage_bucket": "pic-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:547053282951:android:c18f46f57ab23a0e08fa22",
+        "android_client_info": {
+          "package_name": "br.com.copperfio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOLHEapoJA4mDFKzdyX872w066FGHhIIU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
