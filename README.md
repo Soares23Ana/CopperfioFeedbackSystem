@@ -72,6 +72,14 @@ Para facilitar a navegação, acesse os documentos detalhados abaixo:
 
 1. Instale as dependências:
 
+Primeiro, adicione o pacote do Cloud Functions executando o comando abaixo no seu terminal:
+
+```bash
+flutter pub add cloud_functions:^6.2.0
+```
+
+Em seguida, certifique-se de que todas as outras dependências do projeto estejam baixadas e atualizadas:
+
 ```bash
 flutter pub get
 ```
