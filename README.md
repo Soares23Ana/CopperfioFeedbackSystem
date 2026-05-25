@@ -8,7 +8,7 @@ O sistema tem como objetivo centralizar atendimento, reclamações, catálogo de
 
 ### Objetivo do Projeto
 
-Desenvolver um aplicativo Android/iOS corporativo que permita:
+Desenvolver um aplicativo Android corporativo que permita:
 
 - melhorar o relacionamento com clientes;
 - organizar reclamações e chamados;
@@ -55,7 +55,6 @@ Para facilitar a navegação, acesse os documentos detalhados abaixo:
 - Flutter
 - Firebase Auth
 - Cloud Firestore
-- Firebase Storage
 - Provider
 - Flutter Local Notifications
 - fl_chart
