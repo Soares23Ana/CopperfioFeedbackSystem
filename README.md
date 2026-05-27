@@ -90,3 +90,32 @@ flutter run
 ```
 
 
+## Como gerar e instalar o APK (Android)
+
+Atualmente, a geração do instalador está disponível apenas para dispositivos **Android**. Siga os passos abaixo para gerar o arquivo e instalá-lo no celular:
+
+### 1. Gerar o arquivo APK
+No terminal da raiz do projeto, execute o comando abaixo para gerar a versão final (release) do aplicativo:
+```bash
+flutter build apk --release
+````
+
+### 2. Localizar o arquivo
+Após a finalização do processo, o arquivo APK gerado estará na seguinte pasta dentro do projeto:
+
+build/app/outputs/flutter-apk/app-release.apk
+
+(Nota: dependendo da versão do Flutter, o caminho também pode ser estruturado como build/app/outputs/apk/release/app-release.apk).
+
+### 3. Instalação no dispositivo
+* Envio: Pegue o arquivo app-release.apk e envie para o celular onde deseja instalar (você pode enviar pelo WhatsApp, e-mail ou cabo USB).
+
+* Download: No celular, baixe o arquivo recebido.
+
+* Permissão: Ao abrir o arquivo, o Android utilizará o Instalador de Pacotes do sistema.
+
+* Verificação de Segurança: Como o app não está na Google Play Store, o Android (via Google Play Protect) pode exibir um aviso de "App Desconhecido". Pode permitir e avançar com a instalação normalmente.
+
+* Pronto! O aplicativo estará instalado e pronto para o uso.
+
+
