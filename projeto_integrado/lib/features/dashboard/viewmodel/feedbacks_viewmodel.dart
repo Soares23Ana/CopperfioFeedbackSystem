@@ -370,6 +370,11 @@ class FeedbacksViewModel extends ChangeNotifier {
       }
 
       final feedbackData = feedbackDoc.data() as Map<String, dynamic>;
+      final existingAnalise = feedbackData['analiseIA'];
+      if (existingAnalise is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(existingAnalise);
+      }
+
       final textoFeedback = _extrairTextoFeedback(feedbackData);
 
       final analise = await _geminiService.analisarFeedback(textoFeedback);
@@ -426,7 +431,7 @@ class FeedbacksViewModel extends ChangeNotifier {
       int totalNeutros = 0;
       double somaNotas = 0.0;
       int countNotas = 0;
-      
+
       // Somas para cada item (1-8)
       final somaItem = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
       final countItem = [0, 0, 0, 0, 0, 0, 0, 0];
@@ -445,9 +450,18 @@ class FeedbacksViewModel extends ChangeNotifier {
           somaNotas += (notaMedia as num).toDouble();
           countNotas++;
         }
-        
+
         // Coletar notas de cada item
-        final items = ['item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'item7', 'item8'];
+        final items = [
+          'item1',
+          'item2',
+          'item3',
+          'item4',
+          'item5',
+          'item6',
+          'item7',
+          'item8',
+        ];
         for (var i = 0; i < items.length; i++) {
           final itemValue = f[items[i]];
           if (itemValue != null) {
@@ -458,7 +472,7 @@ class FeedbacksViewModel extends ChangeNotifier {
       }
 
       final notaMediaGeral = countNotas > 0 ? (somaNotas / countNotas) : 0.0;
-      
+
       // Calcular médias de cada item
       final mediaItem = List<double>.generate(
         8,
@@ -650,10 +664,7 @@ Tags: ${tags.join(', ')}
 
       if (userId.isNotEmpty && userEmpresa.isNotEmpty) {
         if (!clientesUnicos.containsKey(userId)) {
-          clientesUnicos[userId] = {
-            'userEmpresa': userEmpresa,
-            'cnpj': '',
-          };
+          clientesUnicos[userId] = {'userEmpresa': userEmpresa, 'cnpj': ''};
         }
       }
     }

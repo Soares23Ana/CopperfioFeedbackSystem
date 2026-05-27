@@ -7,6 +7,8 @@ class PedidoRecord {
   final String total;
   final String details;
   final String notes;
+  final String companyName;
+  final DateTime? createdAt;
 
   const PedidoRecord({
     required this.id,
@@ -17,5 +19,7 @@ class PedidoRecord {
     required this.total,
     required this.details,
     required this.notes,
+    required this.companyName,
+    this.createdAt,
   });
 }

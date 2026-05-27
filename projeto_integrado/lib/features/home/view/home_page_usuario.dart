@@ -138,16 +138,34 @@ class _HomePageUsuarioState extends State<HomePageUsuario> {
                   children: [
                     Consumer<CurrentUserViewModel>(
                       builder: (context, userViewModel, _) {
-                        final userName = userViewModel.displayName;
-                        return Text(
-                          'Bem-vindo,\n$userName',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w900,
-                            height: 1.2,
-                            letterSpacing: -0.5,
-                          ),
+                        final userName = userViewModel.displayName.trim();
+                        final displayText = userName.isEmpty
+                            ? 'Usuário'
+                            : userName;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Bem-vindo,\n$displayText',
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 25,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            if (userViewModel.isLoading)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8.0),
+                                child: SizedBox(
+                                  height: 8,
+                                  width: 30,
+                                  child: LinearProgressIndicator(minHeight: 2),
+                                ),
+                              ),
+                          ],
                         );
                       },
                     ),

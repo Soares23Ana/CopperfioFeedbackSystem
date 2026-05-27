@@ -115,9 +115,10 @@ class ItensSalvosPage extends StatelessWidget {
                                     top: Radius.circular(18),
                                   ),
                                   child: SizedBox(
-                                    height: 110,
+                                    height: 92,
                                     child: Image.network(
                                       item.imageUrl,
+                                      width: double.infinity,
                                       fit: BoxFit.cover,
                                       errorBuilder:
                                           (context, error, stackTrace) =>

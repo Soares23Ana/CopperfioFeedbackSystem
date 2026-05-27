@@ -72,10 +72,23 @@ class AlertasViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> gerarAnaliseFeedback(Map<String, dynamic> feedbackData) async {
+  Future<Map<String, dynamic>> gerarAnaliseFeedback(
+    Map<String, dynamic> feedbackData, {
+    String? feedbackId,
+  }) async {
     try {
       final texto = _extrairTextoFeedback(feedbackData);
-      return await _geminiService.analisarFeedback(texto);
+      final analise = await _geminiService.analisarFeedback(texto);
+
+      // Salvar a análise no Firestore se temos o feedbackId
+      if (feedbackId != null && feedbackId.isNotEmpty) {
+        await _service.salvarAnaliseIaFeedback(
+          feedbackId: feedbackId,
+          analiseData: analise,
+        );
+      }
+
+      return analise;
     } catch (e) {
       throw Exception('Erro ao analisar feedback com IA: $e');
     }

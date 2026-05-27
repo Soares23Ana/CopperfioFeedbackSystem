@@ -28,6 +28,59 @@ class PedidoDetailPage extends StatelessWidget {
     }
   }
 
+  Widget _buildStatusStepper(BuildContext context, String status) {
+    final steps = ['Separação', 'Em Andamento', 'Processo de Entrega', 'Entregue'];
+    var current = steps.indexWhere((s) => s.toLowerCase() == status.toLowerCase());
+    if (current == -1) {
+      current = steps.indexWhere((s) => status.toLowerCase().contains(s.toLowerCase()));
+    }
+    if (current == -1) current = 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: List.generate(steps.length, (i) {
+            final done = i <= current;
+            return Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: done ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: done ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: done
+                          ? const Icon(Icons.check, size: 16, color: Colors.white)
+                          : Container(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    steps[i],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: i == current ? Theme.of(context).colorScheme.primary : null,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,12 +107,29 @@ class PedidoDetailPage extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            'Pedido ${pedido.id}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pedido.companyName.isNotEmpty
+                                    ? 'Pedido ${pedido.companyName}'
+                                    : 'Pedido ${pedido.id}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (pedido.companyName.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  'ID ${pedido.id}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         Container(
@@ -104,8 +174,6 @@ class PedidoDetailPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
-                    Text(pedido.summary, style: const TextStyle(fontSize: 14)),
                   ],
                 ),
               ),
@@ -114,10 +182,6 @@ class PedidoDetailPage extends StatelessWidget {
             Expanded(
               child: ListView(
                 children: [
-                  const Text(
-                    'Itens do pedido',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
                   const SizedBox(height: 12),
                   ...pedido.items.map(
                     (item) => Padding(
@@ -133,6 +197,18 @@ class PedidoDetailPage extends StatelessWidget {
                           Expanded(child: Text(item)),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'O que a pessoa pediu',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    pedido.summary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(217),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -155,6 +231,8 @@ class PedidoDetailPage extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
+                  _buildStatusStepper(context, pedido.status),
+                  const SizedBox(height: 6),
                   Text(
                     pedido.details,
                     style: TextStyle(

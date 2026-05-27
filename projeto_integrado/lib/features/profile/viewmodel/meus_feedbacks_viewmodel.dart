@@ -84,7 +84,7 @@ class MeusFeedbacksViewModel extends ChangeNotifier {
 
   bool _isNewFeedback(FeedbackModel feedback) {
     final difference = DateTime.now().difference(feedback.data);
-    return feedback.status.toLowerCase() == 'novo' && difference.inDays < 3;
+    return feedback.status.toLowerCase() == 'novo' && difference.inDays < 2;
   }
 
   String _getEffectiveStatus(FeedbackModel feedback) {

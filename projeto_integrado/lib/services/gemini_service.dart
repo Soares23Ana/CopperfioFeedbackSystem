@@ -23,7 +23,8 @@ class GeminiService {
   }
 
   Future<Map<String, dynamic>> analisarFeedback(String texto) async {
-    final prompt = '''
+    final prompt =
+        '''
 Analise este feedback e retorne um JSON com esta exata estrutura:
 {
   "sentimento": "positivo|neutro|negativo",
@@ -62,7 +63,8 @@ Feedback: "$texto"
     final feedbacksTexto = feedbacks
         .map((f) {
           final titulo = f['titulo'] as String? ?? '';
-          final mensagem = f['mensagem'] as String? ?? f['descricao'] as String? ?? '';
+          final mensagem =
+              f['mensagem'] as String? ?? f['descricao'] as String? ?? '';
           final nota = f['notaMedia']?.toString() ?? 'N/A';
           final tags = (f['tags'] as List<dynamic>?)?.cast<String>() ?? [];
           return 'Nota: $nota | Tags: ${tags.join(", ")} | Título: $titulo | Mensagem: $mensagem';
@@ -70,7 +72,8 @@ Feedback: "$texto"
         .join('\n\n');
 
     // Montar mini-tabela com médias dos itens
-    final tabelaItens = '''
+    final tabelaItens =
+        '''
 $tabelaClientes
 
 MÉDIA DE NOTAS POR ITEM (com base nos feedbacks analisados):
@@ -84,7 +87,8 @@ MÉDIA DE NOTAS POR ITEM (com base nos feedbacks analisados):
 - Item 8 (Observações Complementares): ${mediaItem8.toStringAsFixed(2)}
 ''';
 
-    final prompt = '''
+    final prompt =
+        '''
 Você é um consultor analista de RH e Qualidade da Copperfio. Analise rigorosamente os seguintes feedbacks de clientes e colaboradores.
 
 DADOS REAIS CALCULADOS:
@@ -125,24 +129,25 @@ $feedbacksTexto
     return _parseJsonResponse(response);
   }
 
-  Future<Map<String, dynamic>> analisarPlanoDeAcao(List<Map<String, dynamic>> feedbacks) async {
+  Future<Map<String, dynamic>> analisarPlanoDeAcao(
+    List<Map<String, dynamic>> feedbacks,
+  ) async {
     final feedbacksTexto = feedbacks
         .map((f) {
           final titulo = f['titulo'] as String? ?? '';
-          final mensagem = f['mensagem'] as String? ?? f['descricao'] as String? ?? '';
+          final mensagem =
+              f['mensagem'] as String? ?? f['descricao'] as String? ?? '';
           final nota = f['notaMedia']?.toString() ?? 'N/A';
           return 'Nota: $nota - $titulo: $mensagem';
         })
         .join('\n');
 
-    final prompt = '''
+    final prompt =
+        '''
 Você é um consultor de RH da Copperfio. Analise estes feedbacks críticos e gere um plano de ação estruturado em JSON.
 Retorne APENAS JSON válido com esta estrutura:
 {
   "status": "crítico|preocupante|atenção",
-  "resumoPlano": "resumo curto da sugestão de plano de ação",
-  "resumoChamado": "resumo curto do chamado do cliente",
-  "impactoEmpresa": "como o problema impacta a empresa",
   "problemaPrincipal": "problema principal identificado",
   "impactoNegocio": "impacto nos negócios",
   "acoesPrioritarias": ["ação1", "ação2", "ação3"],
@@ -159,33 +164,121 @@ $feedbacksTexto
     return _parseJsonResponse(response);
   }
 
-  Future<Map<String, dynamic>> gerarSugestaoDeEmail({
-    required String titulo,
-    required String descricao,
-    required String clienteNome,
-    required String empresaNome,
-    required String prioridade,
-    required String dataAbertura,
-  }) async {
-    final prompt = '''
-Você é um analista de atendimento e suporte da Copperfio. Com base no chamado abaixo, gere uma sugestão de email para o cliente que ajude a resolver o problema relatado.
-Retorne APENAS JSON válido com esta estrutura:
-{
-  "assunto": "Assunto do email",
-  "mensagem": "Texto completo do email"
-}
+  Future<String> gerarEmailResposta(
+    Map<String, dynamic> chamado,
+    Map<String, dynamic> plano,
+  ) async {
+    if (Config.googleApiKey.isEmpty) {
+      throw Exception(Config.missingApiKeyMessage);
+    }
 
-Chamado:
-- Título: $titulo
-- Cliente: $clienteNome
-- Empresa: $empresaNome
-- Prioridade: $prioridade
-- Data de abertura: $dataAbertura
-- Descrição do problema: $descricao
+    final acoesPrioritarias = _formatListForPrompt(plano['acoesPrioritarias']);
+    final acoesMedioTermo = _formatListForPrompt(plano['acoesMedioTermo']);
+    final metricasMonitoramento = _formatListForPrompt(
+      plano['metricasMonitoramento'],
+    );
+
+    final prompt =
+        '''
+Você é um analista de atendimento ao cliente da Copperfio.
+Gere um modelo de e-mail de resposta para o cliente que abriu o chamado abaixo.
+
+Instruções:
+- Use tom empático, profissional e claro.
+- Confirme o recebimento do chamado.
+- Resuma o problema principal.
+- Liste as principais ações do plano de ação.
+- Informe próximos passos e prazo estimado.
+- Encaminhe uma mensagem de confiança ao final.
+- Retorne APENAS o texto do e-mail, sem JSON ou marcação adicional.
+
+Dados do chamado:
+ID: ${chamado['id']}
+Título: ${chamado['titulo']}
+Descrição: ${chamado['descricao'] ?? chamado['mensagem']}
+Cliente: ${chamado['usuarioNome'] ?? chamado['usuario_name'] ?? 'Cliente'}
+Email: ${chamado['usuarioEmail'] ?? 'email@exemplo.com'}
+Empresa: ${chamado['empresaNome'] ?? ''}
+Prioridade: ${chamado['prioridade'] ?? ''}
+Status: ${chamado['status'] ?? ''}
+
+Plano de ação:
+Status: ${plano['status'] ?? ''}
+Problema principal: ${plano['problemaPrincipal'] ?? ''}
+Impacto no negócio: ${plano['impactoNegocio'] ?? ''}
+Ações prioritárias:
+$acoesPrioritarias
+Ações médio prazo:
+$acoesMedioTermo
+Métricas de monitoramento:
+$metricasMonitoramento
+Estimativa de impacto: ${plano['estimativaImpacto'] ?? ''}
 ''';
 
-    final response = await _runPrompt(prompt);
-    return _parseJsonResponse(response);
+    final model = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: Config.googleApiKey,
+      systemInstruction: Content.system(
+        'Você é o Analista de RH da Copperfio. Gere um e-mail de resposta ao cliente com tom empático e profissional.',
+      ),
+      generationConfig: GenerationConfig(responseMimeType: 'text/plain'),
+    );
+
+    const maxAttempts = 4;
+    final backoffMs = [300, 800, 1800, 3600];
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await model.generateContent([Content.text(prompt)]);
+        final jsonString = response.text;
+
+        if (jsonString == null || jsonString.isEmpty) {
+          throw Exception('Resposta vazia da API Gemini');
+        }
+
+        return jsonString.trim();
+      } catch (e) {
+        final err = e.toString();
+        if (err.contains('429') ||
+            err.toLowerCase().contains('quota') ||
+            err.toLowerCase().contains('rate limit')) {
+          throw Exception(
+            'Limite de cota da API atingido. Tente novamente mais tarde.',
+          );
+        }
+        if (err.toLowerCase().contains('network') ||
+            err.toLowerCase().contains('connection')) {
+          throw Exception('Erro de conexão. Verifique sua internet.');
+        }
+
+        final isTransient =
+            err.contains('503') ||
+            err.toLowerCase().contains('unavailable') ||
+            err.toLowerCase().contains('server error') ||
+            err.toLowerCase().contains('high demand');
+        if (!isTransient || attempt == maxAttempts) {
+          if (isTransient) {
+            throw Exception(
+              'Erro ao conectar com Gemini: o serviço está indisponível no momento. Tente novamente mais tarde. Detalhe: ${err}',
+            );
+          }
+          throw Exception('Erro ao conectar com Gemini: ${err}');
+        }
+
+        final delayMs = backoffMs[(attempt - 1).clamp(0, backoffMs.length - 1)];
+        await Future.delayed(Duration(milliseconds: delayMs));
+      }
+    }
+
+    throw Exception('Erro desconhecido ao conectar com Gemini.');
+  }
+
+  String _formatListForPrompt(dynamic items) {
+    final list = (items as List<dynamic>?)?.cast<String>() ?? [];
+    if (list.isEmpty) {
+      return '- Nenhuma ação definida';
+    }
+    return list.map((item) => '- ${item.trim()}').join('\n');
   }
 
   Future<String> _runPrompt(String prompt) async {
@@ -211,24 +304,35 @@ Chamado:
         final err = e.toString();
 
         // Detect rate limit / quota errors — do not retry (fail fast)
-        if (err.contains('429') || err.toLowerCase().contains('quota') || err.toLowerCase().contains('rate limit')) {
-          throw Exception('Limite de cota da API atingido. Tente novamente mais tarde.');
+        if (err.contains('429') ||
+            err.toLowerCase().contains('quota') ||
+            err.toLowerCase().contains('rate limit')) {
+          throw Exception(
+            'Limite de cota da API atingido. Tente novamente mais tarde.',
+          );
         }
 
         // Network errors — fail fast with friendly message
-        if (err.toLowerCase().contains('network') || err.toLowerCase().contains('connection')) {
+        if (err.toLowerCase().contains('network') ||
+            err.toLowerCase().contains('connection')) {
           throw Exception('Erro de conexão. Verifique sua internet.');
         }
 
         // Transient server-side errors — retry with backoff
-        final isTransient = err.contains('503') || err.toLowerCase().contains('unavailable') || err.toLowerCase().contains('server error') || err.toLowerCase().contains('high demand');
+        final isTransient =
+            err.contains('503') ||
+            err.toLowerCase().contains('unavailable') ||
+            err.toLowerCase().contains('server error') ||
+            err.toLowerCase().contains('high demand');
 
         if (!isTransient || attempt == maxAttempts) {
           // No more retries or not transient — surface a clear error message
           if (isTransient) {
-            throw Exception('Erro ao conectar com Gemini: o serviço está indisponível no momento. Tente novamente mais tarde. Detalhe: $err');
+            throw Exception(
+              'Erro ao conectar com Gemini: o serviço está indisponível no momento. Tente novamente mais tarde. Detalhe: ${err}',
+            );
           }
-          throw Exception('Erro ao conectar com Gemini: $err');
+          throw Exception('Erro ao conectar com Gemini: ${err}');
         }
 
         // Wait before next attempt
@@ -254,12 +358,20 @@ Chamado:
       final decoded = json.decode(jsonPart);
       return Map<String, dynamic>.from(decoded as Map<String, dynamic>);
     } catch (e) {
-      throw FormatException('Erro ao converter JSON do Gemini: ${e.toString()}');
+      throw FormatException(
+        'Erro ao converter JSON do Gemini: ${e.toString()}',
+      );
     }
   }
 
   void _validarResposta(Map<String, dynamic> resposta) {
-    final camposObrigatorios = ['sentimento', 'categoria', 'urgencia', 'resumo', 'sugestao'];
+    final camposObrigatorios = [
+      'sentimento',
+      'categoria',
+      'urgencia',
+      'resumo',
+      'sugestao',
+    ];
     for (final campo in camposObrigatorios) {
       if (!resposta.containsKey(campo) || resposta[campo] == null) {
         throw Exception('Campo obrigatório ausente: $campo');
@@ -271,12 +383,20 @@ Chamado:
       resposta['sentimento'] = 'neutro';
     }
 
-    final categoriasValidas = ['segurança', 'clima', 'processo', 'qualidade', 'outro'];
+    final categoriasValidas = [
+      'segurança',
+      'clima',
+      'processo',
+      'qualidade',
+      'outro',
+    ];
     if (!categoriasValidas.contains(resposta['categoria'])) {
       resposta['categoria'] = 'outro';
     }
 
-    if (resposta['urgencia'] is! int || resposta['urgencia'] < 1 || resposta['urgencia'] > 5) {
+    if (resposta['urgencia'] is! int ||
+        resposta['urgencia'] < 1 ||
+        resposta['urgencia'] > 5) {
       resposta['urgencia'] = 3;
     }
   }

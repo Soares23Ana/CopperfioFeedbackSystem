@@ -254,6 +254,17 @@ class _ChamadosPageState extends State<ChamadosPage> {
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
+                                                if (chamado.hasAnaliseIa && chamado.hasEmailTemplate)
+                                                  Container(
+                                                    margin: const EdgeInsets.only(top: 2),
+                                                    width: 8,
+                                                    height: 8,
+                                                    decoration: const BoxDecoration(
+                                                      color: Color(0xFF29A745),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                const SizedBox(width: 8),
                                                 Material(
                                                   color: Colors.transparent,
                                                   child: InkWell(

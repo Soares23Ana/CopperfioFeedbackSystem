@@ -50,6 +50,7 @@ class ProductionEfficiencyViewModel extends ChangeNotifier {
 
     try {
       final empresaId = _getEmpresaId();
+      debugPrint('ProductionEfficiencyViewModel.loadEfficiency empresaId=$empresaId');
       final result = await _firestoreService.getProductionEfficiency(empresaId);
       
       _efficiency = (result['efficiency'] as num?)?.toDouble() ?? 83.5;
@@ -66,6 +67,7 @@ class ProductionEfficiencyViewModel extends ChangeNotifier {
 
   Stream<Map<String, dynamic>> getEfficiencyStream() {
     final empresaId = _getEmpresaId();
+    debugPrint('ProductionEfficiencyViewModel.getEfficiencyStream empresaId=$empresaId');
     return _firestoreService.getProductionEfficiencyStream(empresaId);
   }
 }

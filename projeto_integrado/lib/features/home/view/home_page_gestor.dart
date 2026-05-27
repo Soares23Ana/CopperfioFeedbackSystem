@@ -497,16 +497,34 @@ class _HomePageGestorState extends State<HomePageGestor> {
                     const SizedBox(height: 8),
                     Consumer<CurrentUserViewModel>(
                       builder: (context, userViewModel, _) {
-                        final gestorName = userViewModel.displayName;
-                        return Text(
-                          'Bem-vindo(a),\n$gestorName',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            height: 1.2,
-                            letterSpacing: -0.5,
-                          ),
+                        final gestorName = userViewModel.displayName.trim();
+                        final displayText = gestorName.isEmpty
+                            ? 'Gestor'
+                            : gestorName;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Bem-vindo(a),\n$displayText',
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            if (userViewModel.isLoading)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8.0),
+                                child: SizedBox(
+                                  height: 8,
+                                  width: 30,
+                                  child: LinearProgressIndicator(minHeight: 2),
+                                ),
+                              ),
+                          ],
                         );
                       },
                     ),

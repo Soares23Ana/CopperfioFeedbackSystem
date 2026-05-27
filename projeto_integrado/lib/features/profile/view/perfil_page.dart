@@ -26,7 +26,6 @@ class PerfilPage extends StatelessWidget {
     final userViewModel = context.watch<CurrentUserViewModel>();
     final nivelVm = context.watch<SeuNivelViewModel>();
     final data = userViewModel.userData ?? {};
-    final currentUserEmail = userViewModel.currentUser?.email;
 
     if (!nivelVm.isLoading && !nivelVm.hasLoaded) {
       Future.microtask(() => context.read<SeuNivelViewModel>().loadUserLevel());
@@ -165,7 +164,7 @@ class PerfilPage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  userViewModel.displayName,
+                                  data['nome'] as String? ?? 'Usuário',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 18,
@@ -180,16 +179,6 @@ class PerfilPage extends StatelessWidget {
                                     fontSize: 12,
                                   ),
                                 ),
-                                if ((currentUserEmail ?? '').isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    currentUserEmail!,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
                             const SizedBox(height: 4),

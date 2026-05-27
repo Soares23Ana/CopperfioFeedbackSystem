@@ -104,9 +104,77 @@ class FirestoreService {
     });
   }
 
+  Future<void> saveChatbotUserMessageIfRelevant({
+    required String userId,
+    required String userName,
+    required String content,
+    String? empresaId,
+  }) async {
+    if (!_shouldSaveChatMessage(content)) {
+      return;
+    }
+
+    await _db.collection('mensagens').add({
+      'content': content.trim(),
+      'senderId': userId,
+      'senderName': userName,
+      'recipientId': 'ai_system',
+      'recipientName': 'Copperfio IA',
+      'isRead': false,
+      'isUrgent': false,
+      'type': 'chatbot_question',
+      'topic': _detectChatbotTopic(content),
+      'empresaId': empresaId ?? 'copperfio',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  bool _shouldSaveChatMessage(String content) {
+    final normalized = content.toLowerCase();
+    final keywords = [
+      'copperfio',
+      'produto',
+      'produtos',
+      'cabo',
+      'cabos',
+      'fio',
+      'fios',
+      'orçamento',
+      'orcamento',
+      'pedido',
+      'orçar',
+      'orcar',
+      'ficha técnica',
+      'ficha tecnica',
+      'especificação',
+      'especificacao',
+      'preço',
+      'preco',
+      'bitola',
+      'alumínio',
+      'aluminio',
+      'condutor',
+    ];
+    return keywords.any(normalized.contains);
+  }
+
+  String _detectChatbotTopic(String content) {
+    final lower = content.toLowerCase();
+    if (lower.contains('produto') || lower.contains('produtos') ||
+        lower.contains('cabo') || lower.contains('cabos') ||
+        lower.contains('fio') || lower.contains('fios') ||
+        lower.contains('ficha técnica') || lower.contains('ficha tecnica') ||
+        lower.contains('especificação') || lower.contains('especificacao') ||
+        lower.contains('bitola') || lower.contains('alumínio') || lower.contains('aluminio')) {
+      return 'produtos';
+    }
+    return 'copperfio';
+  }
+
   // 🔹 Criar pedido / solicitação de orçamento
   Future<String> criarPedido({
     String? userId,
+    String? userEmail,
     String? empresaId,
     required String nome,
     required String empresa,
@@ -136,6 +204,8 @@ class FirestoreService {
 
     final docRef = await _db.collection('pedidos').add({
       'userId': userId ?? '',
+      'userEmail': userEmail ?? '',
+      'userEmailLower': userEmail?.trim().toLowerCase() ?? '',
       'empresaId': empresaId ?? 'copperfio',
       'nome': nome,
       'empresa': empresa,
@@ -145,7 +215,8 @@ class FirestoreService {
       'cidade': cidade,
       'cep': cep,
       'fone': fone,
-      'email': email,
+      'email': email.trim(),
+      'emailLower': email.trim().toLowerCase(),
       'observacoes': observacoes,
       'items': items ?? [],
       'total': total ?? '',
@@ -197,6 +268,20 @@ class FirestoreService {
         .orderBy('data', descending: true)
         .get();
     return query.docs;
+  }
+
+  // 🔹 Salvar análise IA do feedback
+  Future<void> salvarAnaliseIaFeedback({
+    required String feedbackId,
+    required Map<String, dynamic> analiseData,
+  }) async {
+    await _db.collection('feedbacks').doc(feedbackId).update({
+      'analiseIA': analiseData,
+      'iaAnalysis': analiseData,
+      'iaAnalysisSaved': true,
+      'analisadoEm': FieldValue.serverTimestamp(),
+      'iaAnalysisSavedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // 🔹 Deletar feedback
@@ -515,6 +600,11 @@ class FirestoreService {
           ? _calculateEfficiencyFromRatings(allRatings)
           : 83.5;
 
+      debugPrint(
+        'getProductionEfficiency empresaId=$empresaId allDocs=${allSnapshot.docs.length} '
+        'validRatings=${allRatings.length} overallEfficiency=$overallEfficiency',
+      );
+
       double variation = 0.0;
       if (currentTurnSnapshot.docs.isNotEmpty &&
           previousTurnSnapshot.docs.isNotEmpty) {
@@ -572,6 +662,11 @@ class FirestoreService {
           final overallEfficiency = allRatings.isNotEmpty
               ? _calculateEfficiencyFromRatings(allRatings)
               : 83.5;
+
+          debugPrint(
+            'getProductionEfficiencyStream empresaId=$empresaId docs=${snapshot.docs.length} '
+            'validRatings=${allRatings.length} overallEfficiency=$overallEfficiency',
+          );
 
           final now = DateTime.now();
           final lastTurnTime = now.subtract(const Duration(hours: 8));

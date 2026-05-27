@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:validatorless/validatorless.dart';
 import '../../../core/theme_provider.dart';
 import '../viewmodel/login_viewmodel.dart';
-import '../../profile/viewmodel/current_user_viewmodel.dart';
 import '../../home/view/home_page_gestor.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 import '../../home/view/home_page_usuario.dart';
+import '../../profile/viewmodel/current_user_viewmodel.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -194,28 +194,34 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                                 onPressed: () async {
-                                  if (!_formKey.currentState!.validate()) return;
+                                  if (!_formKey.currentState!.validate())
+                                    return;
 
-                                  final viewModel = context.read<LoginViewModel>();
+                                  final loginViewModel = context
+                                      .read<LoginViewModel>();
+                                  final currentUserViewModel = context
+                                      .read<CurrentUserViewModel>();
 
                                   try {
-                                    final tipo = await viewModel.signIn(
+                                    final tipo = await loginViewModel.signIn(
                                       email: _emailController.text.trim(),
                                       senha: _senhaController.text.trim(),
                                     );
 
-                                    // Carrega os dados do usuário para que
-                                    // perfil e home mostrem as informações
-                                    // imediatamente após o login.
-                                    await Future.delayed(const Duration(milliseconds: 250));
-                                    await context.read<CurrentUserViewModel>().loadUserData(force: true);
+                                    // Carrega dados do usuário após login bem-sucedido
+                                    if (context.mounted) {
+                                      await currentUserViewModel.loadUserData(
+                                        force: true,
+                                      );
+                                    }
 
                                     if (tipo == 'empresa') {
                                       if (context.mounted) {
                                         Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => const HomePageGestor(),
+                                            builder: (_) =>
+                                                const HomePageGestor(),
                                           ),
                                         );
                                       }
@@ -224,13 +230,16 @@ class _LoginPageState extends State<LoginPage> {
                                         Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => const HomePageUsuario(),
+                                            builder: (_) =>
+                                                const HomePageUsuario(),
                                           ),
                                         );
                                       }
                                     } else {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           const SnackBar(
                                             content: Text(
                                               'Tipo de usuário inválido.',
@@ -241,11 +250,11 @@ class _LoginPageState extends State<LoginPage> {
                                     }
                                   } catch (error) {
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
-                                          content: Text(
-                                            error.toString(),
-                                          ),
+                                          content: Text(error.toString()),
                                         ),
                                       );
                                     }

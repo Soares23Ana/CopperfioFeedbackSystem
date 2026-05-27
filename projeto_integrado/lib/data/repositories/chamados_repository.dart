@@ -24,12 +24,12 @@ class ChamadosRepository {
         .where('usuarioId', isEqualTo: usuarioId)
         .snapshots()
         .map((snapshot) {
-      final chamados = snapshot.docs
-          .map((doc) => ChamadoModel.fromMap({...doc.data(), 'id': doc.id}))
-          .toList();
-      chamados.sort((a, b) => b.dataAbertura.compareTo(a.dataAbertura));
-      return chamados;
-    });
+          final chamados = snapshot.docs
+              .map((doc) => ChamadoModel.fromMap({...doc.data(), 'id': doc.id}))
+              .toList();
+          chamados.sort((a, b) => b.dataAbertura.compareTo(a.dataAbertura));
+          return chamados;
+        });
   }
 
   // Buscar chamados da empresa (gestor)
@@ -39,19 +39,21 @@ class ChamadosRepository {
         .where('empresaId', isEqualTo: empresaId)
         .snapshots()
         .map((snapshot) {
-      final chamados = snapshot.docs
-          .map((doc) => ChamadoModel.fromMap({...doc.data(), 'id': doc.id}))
-          .toList();
-      chamados.sort((a, b) => b.dataAbertura.compareTo(a.dataAbertura));
-      return chamados;
-    });
+          final chamados = snapshot.docs
+              .map((doc) => ChamadoModel.fromMap({...doc.data(), 'id': doc.id}))
+              .toList();
+          chamados.sort((a, b) => b.dataAbertura.compareTo(a.dataAbertura));
+          return chamados;
+        });
   }
 
   // Buscar chamado específico
   Future<ChamadoModel?> buscarChamado(String chamadoId) async {
     try {
-      final doc =
-          await _firestore.collection(collectionName).doc(chamadoId).get();
+      final doc = await _firestore
+          .collection(collectionName)
+          .doc(chamadoId)
+          .get();
       if (doc.exists) {
         return ChamadoModel.fromMap({...doc.data()!, 'id': doc.id});
       }
@@ -66,7 +68,9 @@ class ChamadosRepository {
     try {
       await _firestore.collection(collectionName).doc(chamadoId).update({
         'status': novoStatus,
-        'dataFechamento': novoStatus == 'fechado' ? DateTime.now().millisecondsSinceEpoch : null,
+        'dataFechamento': novoStatus == 'fechado'
+            ? DateTime.now().millisecondsSinceEpoch
+            : null,
       });
     } catch (e) {
       throw Exception('Erro ao atualizar status: $e');
@@ -74,14 +78,58 @@ class ChamadosRepository {
   }
 
   // Atualizar prioridade do chamado
-  Future<void> atualizarPrioridade(String chamadoId, String novaPrioridade) async {
+  Future<void> atualizarPrioridade(
+    String chamadoId,
+    String novaPrioridade,
+  ) async {
     try {
-      await _firestore
-          .collection(collectionName)
-          .doc(chamadoId)
-          .update({'prioridade': novaPrioridade});
+      await _firestore.collection(collectionName).doc(chamadoId).update({
+        'prioridade': novaPrioridade,
+      });
     } catch (e) {
       throw Exception('Erro ao atualizar prioridade: $e');
+    }
+  }
+
+  // Buscar dados completos do chamado, incluindo campos extras como análise IA
+  Future<Map<String, dynamic>?> buscarChamadoDados(String chamadoId) async {
+    try {
+      final doc = await _firestore
+          .collection(collectionName)
+          .doc(chamadoId)
+          .get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      throw Exception('Erro ao buscar dados do chamado: $e');
+    }
+  }
+
+  // Salvar análise IA no chamado
+  Future<void> salvarAnaliseChamado(
+    String chamadoId,
+    Map<String, dynamic> analise,
+  ) async {
+    try {
+      await _firestore.collection(collectionName).doc(chamadoId).update({
+        'analiseIA': analise,
+        'analisadoEm': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Erro ao salvar análise IA do chamado: $e');
+    }
+  }
+
+  // Salvar template de e-mail gerado no chamado
+  Future<void> salvarTemplateEmailChamado(
+    String chamadoId,
+    String emailTemplate,
+  ) async {
+    try {
+      await _firestore.collection(collectionName).doc(chamadoId).update({
+        'analiseIA.emailTemplate': emailTemplate,
+      });
+    } catch (e) {
+      throw Exception('Erro ao salvar template de e-mail do chamado: $e');
     }
   }
 

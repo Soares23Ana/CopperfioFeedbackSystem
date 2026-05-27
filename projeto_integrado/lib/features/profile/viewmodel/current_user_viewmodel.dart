@@ -20,14 +20,7 @@ class CurrentUserViewModel extends ChangeNotifier {
   bool get hasLoaded => _hasLoaded;
   String get displayName {
     final nome = _userData?['nome'] as String? ?? '';
-    if (nome.trim().isNotEmpty) return nome.trim();
-
-    final firebaseDisplay = currentUser?.displayName;
-    if (firebaseDisplay != null && firebaseDisplay.trim().isNotEmpty) {
-      return firebaseDisplay.trim();
-    }
-
-    return 'Usuário';
+    return nome.trim().isNotEmpty ? nome.trim() : 'Usuário';
   }
 
   String get firstName {
@@ -49,11 +42,6 @@ class CurrentUserViewModel extends ChangeNotifier {
 
     try {
       _userData = await _authService.getCurrentUserData();
-      // Debug prints to help diagnose missing name issues
-      // ignore: avoid_print
-      print('[CurrentUserViewModel] loadUserData -> userData: $_userData');
-      // ignore: avoid_print
-      print('[CurrentUserViewModel] loadUserData -> firebase user: ${currentUser?.uid}, ${currentUser?.email}, ${currentUser?.displayName}');
       _userType = _userData?['tipo'] as String?;
       _hasLoaded = true;
     } catch (e) {

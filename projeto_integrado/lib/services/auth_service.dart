@@ -51,7 +51,6 @@ class AuthService {
     final userId = userCredential.user?.uid;
 
     if (userId != null) {
-      await userCredential.user?.updateDisplayName(nome.trim());
       await _db.collection('users').doc(userId).set({
         'email': normalizedEmail,
         'email_lower': normalizedEmail,

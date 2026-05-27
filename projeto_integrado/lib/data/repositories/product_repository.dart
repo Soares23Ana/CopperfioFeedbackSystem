@@ -78,7 +78,7 @@ class ProductRepository {
         '6756 - Fios de aço zincados para alma de cabos de alumínio e alumínio-liga.',
         '7270 - Cabos de alumínio nus com alma de aço zincado para linhas aéreas.',
       ],
-      imageUrl: 'https://i.imgur.com/q4kgwSC.jpg',
+      imageUrl: 'https://i.imgur.com/Yx8aKAH.jpg',
       pdfUrl:
           'assets/fichasTecnicas/Cabos Copperfio de Alumínio Nu COM Alma de Aço.pdf',
     ),
@@ -91,7 +91,7 @@ class ProductRepository {
         '5118 – Fios de Alumínio 1350 nus, de seção circular, para fins elétricos.',
         '7280 - Cabos de alumínio nu para linhas aéreas sem alma de aço.',
       ],
-      imageUrl: 'https://i.imgur.com/6OJihLQ.jpg',
+      imageUrl: 'https://i.imgur.com/hOvo6H3.jpg',
       pdfUrl:
           'assets/fichasTecnicas/Cabos Copperfio de Alumínio Nu SEM Alma de Aço.pdf',
     ),
@@ -104,7 +104,7 @@ class ProductRepository {
         '7270 – Cabos de Alumínio nu com alma de aço zincado para linhas aéreas - Especificação.',
         '6756 – Fios de Aço zincados para alma de cabos de alumínio e alumínio – liga.',
       ],
-      imageUrl: 'https://i.imgur.com/Yx8aKAH.jpg',
+      imageUrl: 'https://i.imgur.com/6OJihLQ.jpg',
       pdfUrl:
           'assets/fichasTecnicas/Cabos Copperfio de Alumínio- Alma de Aço Extra Forte.pdf',
     ),
@@ -116,7 +116,7 @@ class ProductRepository {
       specs: [
         '10298 – Cabos de Alumínio-magnésio-silício, nus, para linhas aéreas – Especificação.',
       ],
-      imageUrl: 'https://i.imgur.com/hOvo6H3.jpg',
+      imageUrl: 'https://i.imgur.com/4CV4yP7.jpg',
       pdfUrl:
           'assets/fichasTecnicas/Cabos Copperfio de Alumínio Nu-LIGA 6201.pdf',
     ),
@@ -128,7 +128,7 @@ class ProductRepository {
       specs: [
         '5118 – Fios de alumínio nus, de seção circular, para fins elétricos.',
       ],
-      imageUrl: 'https://i.imgur.com/4CV4yP7.jpg',
+      imageUrl: 'https://i.imgur.com/hMQbvXv.jpg',
       pdfUrl: 'assets/fichasTecnicas/Fios Copperfio de Alumínio Nu-1350.pdf',
     ),
     ProductModel(
@@ -139,7 +139,7 @@ class ProductRepository {
       specs: [
         '5285 – Fios de alumínio-magnésio-silício, têmpera T81, nus, de seção circular, para fins elétricos - Especificação.',
       ],
-      imageUrl: 'https://i.imgur.com/nTYMP1r.jpg',
+      imageUrl: 'https://i.imgur.com/hMQbvXv.jpg',
       pdfUrl: 'assets/fichasTecnicas/Fios Copperfio de Alumínio Nu-6201.pdf',
     ),
     ProductModel(
@@ -188,7 +188,7 @@ class ProductRepository {
         'NM 280 – Condutores de cabos isolados (IEC 60228, MOD).',
         '7285 - Cabos de potência com isolação extrudada de polietileno termofixo (XLPE) para tensão de 0,6/1 kV - Sem cobertura.',
       ],
-      imageUrl: 'https://i.imgur.com/hMQbvXv.jpg',
+      imageUrl: 'https://i.imgur.com/q4kgwSC.jpg',
       pdfUrl: 'assets/fichasTecnicas/Cabos Copperfio de Alumínio 06-UNI.pdf',
     ),
     ProductModel(
@@ -200,7 +200,7 @@ class ProductRepository {
       specs: [
         '11873 – Cabos cobertos com material polimérico para redes de distribuição aérea de energia elétrica fixados em espaçadores, em tensões de 13,8 kV a 34,5 kV.',
       ],
-      imageUrl: 'https://i.imgur.com/hMQbvXv.jpg',
+      imageUrl: 'https://i.imgur.com/nTYMP1r.jpg',
       pdfUrl:
           'assets/fichasTecnicas/Cabos Copperfio de Alumínio PROTEGIDO 8.pdf',
     ),

@@ -36,6 +36,31 @@ class ExcelService {
     return '';
   }
 
+  static String _formatFeedbackDate(dynamic rawDate) {
+    if (rawDate == null) return '';
+
+    if (rawDate is DateTime) {
+      return '${rawDate.day.toString().padLeft(2, '0')}/${rawDate.month.toString().padLeft(2, '0')}/${rawDate.year}';
+    }
+
+    if (rawDate is Timestamp) {
+      final date = rawDate.toDate();
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    }
+
+    if (rawDate is int) {
+      final date = DateTime.fromMillisecondsSinceEpoch(rawDate);
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    }
+
+    final parsed = DateTime.tryParse(rawDate.toString());
+    if (parsed != null) {
+      return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+    }
+
+    return rawDate.toString();
+  }
+
   static Future<void> gerarExcel({
     List<Map<String, dynamic>>? feedbacks,
   }) async {
@@ -110,9 +135,9 @@ class ExcelService {
         CellIndex.indexByColumnRow(columnIndex: 11, rowIndex: 1),
       );
 
-      // Fórmula do excel que tira a média de todas as médias dos clientes (Coluna K)
+      // Fórmula do excel que tira a média de todas as médias dos clientes (Coluna L)
       celulaMediaValor.value = FormulaCellValue(
-        '=AVERAGE(K5:K$ultimaLinhaDados)',
+        '=AVERAGE(L5:L$ultimaLinhaDados)',
       );
 
       celulaMediaTexto.cellStyle = estiloPainelGeral;
@@ -122,6 +147,7 @@ class ExcelService {
       List<String> colunasModelo = [
         'Cliente',
         'CNPJ',
+        'Data',
         'Item 1',
         'Item 2',
         'Item 3',
@@ -213,14 +239,10 @@ class ExcelService {
                   '0',
             ) ??
             0.0;
-        
+
         // Média do feedback vinda do Firebase
         double notaMedia =
-            double.tryParse(
-              documento['notaMedia']?.toString() ??
-                  '0',
-            ) ??
-            0.0;
+            double.tryParse(documento['notaMedia']?.toString() ?? '0') ?? 0.0;
 
         // Nome da empresa cliente vindo do Firebase
         String cliente =
@@ -251,27 +273,32 @@ class ExcelService {
           );
         }
 
+        String dataFeedback = _formatFeedbackDate(
+          documento['data'] ?? documento['Data'] ?? documento['createdAt'],
+        );
+
         // Monta a linha exatamente na estrutura da Copperfio
         List<CellValue> valoresColunas = [
           TextCellValue(cliente), // A: Cliente
           TextCellValue(cnpj), // B: CNPJ
-          DoubleCellValue(item1), // C: Item 1
-          DoubleCellValue(item2), // D: Item 2
-          DoubleCellValue(item3), // E: Item 3
-          DoubleCellValue(item4), // F: Item 4
-          DoubleCellValue(item5), // G: Item 5
-          DoubleCellValue(item6), // H: Item 6
-          DoubleCellValue(item7), // I: Item 7
-          DoubleCellValue(item8), // J: Item 8
-          // K: média (cliente) -> Usa a notaMedia já calculada e salva no Firebase
+          TextCellValue(dataFeedback), // C: Data
+          DoubleCellValue(item1), // D: Item 1
+          DoubleCellValue(item2), // E: Item 2
+          DoubleCellValue(item3), // F: Item 3
+          DoubleCellValue(item4), // G: Item 4
+          DoubleCellValue(item5), // H: Item 5
+          DoubleCellValue(item6), // I: Item 6
+          DoubleCellValue(item7), // J: Item 7
+          DoubleCellValue(item8), // K: Item 8
+          // L: média (cliente) -> Usa a notaMedia já calculada e salva no Firebase
           DoubleCellValue(notaMedia),
 
           TextCellValue(
             'Sim [  ]  Não [  ]',
-          ), // L: Plano de Ação estruturado para checagem
-          TextCellValue('Não aplicável'), // M: Ação tomada
-          TextCellValue('Sim [  ]  Não [  ]'), // N: Retorno ao cliente
-          TextCellValue('Sim [  ]  Não [  ]'), // O: Cliente satisfeito
+          ), // M: Plano de Ação estruturado para checagem
+          TextCellValue('Não aplicável'), // N: Ação tomada
+          TextCellValue('Sim [  ]  Não [  ]'), // O: Retorno ao cliente
+          TextCellValue('Sim [  ]  Não [  ]'), // P: Cliente satisfeito
         ];
 
         sheetObject.appendRow(valoresColunas);
@@ -293,20 +320,21 @@ class ExcelService {
       // 6. AJUSTANDO A LARGURA DAS COLUNAS PARA FICAR LEGÍVEL
       sheetObject.setColumnWidth(0, 30.0); // Coluna do nome do cliente maior
       sheetObject.setColumnWidth(1, 18.0); // CNPJ
-      for (int i = 2; i <= 9; i++) {
+      sheetObject.setColumnWidth(2, 14.0); // Data do feedback
+      for (int i = 3; i <= 10; i++) {
         sheetObject.setColumnWidth(
           i,
           10.0,
         ); // Tamanho ideal para as notas dos Itens 1 a 8
       }
-      sheetObject.setColumnWidth(10, 15.0); // Média do cliente
-      sheetObject.setColumnWidth(11, 20.0); // Plano de ação
+      sheetObject.setColumnWidth(11, 15.0); // Média do cliente
+      sheetObject.setColumnWidth(12, 20.0); // Plano de ação
       sheetObject.setColumnWidth(
-        12,
+        13,
         32.0,
       ); // Ação tomada (campo de texto maior)
-      sheetObject.setColumnWidth(13, 22.0); // Retorno ao cliente
-      sheetObject.setColumnWidth(14, 25.0); // Cliente satisfeito
+      sheetObject.setColumnWidth(14, 22.0); // Retorno ao cliente
+      sheetObject.setColumnWidth(15, 25.0); // Cliente satisfeito
 
       // 7. SALVANDO E COMPARTILHANDO O ARQUIVO CORRIGIDO
       var fileBytes = excel.save();

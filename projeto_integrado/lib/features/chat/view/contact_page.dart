@@ -99,9 +99,20 @@ class _ContactPageState extends State<ContactPage> {
 
     final uid = _auth.currentUserId;
 
+    if (uid == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro: preciso de login para salvar seu pedido.'),
+        ),
+      );
+      return;
+    }
+
     try {
       await _firestore.criarPedido(
         userId: uid,
+        userEmail: _auth.getCurrentUser()?.email?.trim().toLowerCase(),
         empresaId: 'copperfio',
         nome: _nomeController.text.trim(),
         empresa: _empresaController.text.trim(),
@@ -110,9 +121,7 @@ class _ContactPageState extends State<ContactPage> {
         estado: _estadoController.text.trim(),
         cidade: _cidadeController.text.trim(),
         cep: _cepController.text.trim(),
-        fone: PhoneInputFormatter.digitsOnly(
-          _foneController.text,
-        ),
+        fone: PhoneInputFormatter.digitsOnly(_foneController.text),
         email: _emailController.text.trim(),
         observacoes: _observacoesController.text.trim(),
         items: [],

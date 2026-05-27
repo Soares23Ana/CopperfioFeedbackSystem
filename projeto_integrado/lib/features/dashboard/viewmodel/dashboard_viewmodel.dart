@@ -103,12 +103,26 @@ class DashboardViewModel extends ChangeNotifier {
       }
 
       final notaMedia = (data['notaMedia'] as num?)?.toDouble() ?? 0.0;
-      if (notaMedia >= 7.0) {
+      final analiseIA = (data['analiseIA'] as Map<String, dynamic>?) ??
+          (data['iaAnalysis'] as Map<String, dynamic>?);
+      final sentimento = analiseIA != null
+          ? (analiseIA['sentimento'] as String?)?.toLowerCase()
+          : null;
+
+      if (sentimento == 'positivo' || sentimento == 'positiva') {
         sentimentoCounts['Positivo'] = sentimentoCounts['Positivo']! + 1;
-      } else if (notaMedia >= 4.0) {
+      } else if (sentimento == 'negativo') {
+        sentimentoCounts['Negativo'] = sentimentoCounts['Negativo']! + 1;
+      } else if (sentimento == 'neutro') {
         sentimentoCounts['Neutro'] = sentimentoCounts['Neutro']! + 1;
       } else {
-        sentimentoCounts['Negativo'] = sentimentoCounts['Negativo']! + 1;
+        if (notaMedia >= 7.0) {
+          sentimentoCounts['Positivo'] = sentimentoCounts['Positivo']! + 1;
+        } else if (notaMedia >= 4.0) {
+          sentimentoCounts['Neutro'] = sentimentoCounts['Neutro']! + 1;
+        } else {
+          sentimentoCounts['Negativo'] = sentimentoCounts['Negativo']! + 1;
+        }
       }
 
       final satisfacao = (notaMedia.clamp(0.0, 10.0) * 10).roundToDouble();

@@ -98,7 +98,15 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
     );
   }
 
-  Future<void> _analisarFeedback(String feedbackId) async {
+  Future<void> _analisarFeedback(
+    String feedbackId,
+    Map<String, dynamic>? savedAnalysis,
+  ) async {
+    if (savedAnalysis != null) {
+      await _mostrarDialogAnalise(savedAnalysis);
+      return;
+    }
+
     setState(() {
       _processingFeedbackId = feedbackId;
     });
@@ -123,7 +131,9 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
   }
 
   Future<void> _abrirConfiguracaoRelatorio() async {
-    String topicoSelecionado = _selectedFilter == 'DATA' ? 'TODOS' : _selectedFilter;
+    String topicoSelecionado = _selectedFilter == 'DATA'
+        ? 'TODOS'
+        : _selectedFilter;
     DateTimeRange? periodoSelecionado =
         _selectedDateRange; // usa o filtro atual da tela como padrão
     String filtroSelecionado =
@@ -575,13 +585,19 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                       ],
 
                       // Tabela de Médias por Item
-                      if (relatorio['tabelaItens'] != null && (relatorio['tabelaItens'] as String).isNotEmpty) ...[
+                      if (relatorio['tabelaItens'] != null &&
+                          (relatorio['tabelaItens'] as String).isNotEmpty) ...[
                         _buildSectionTitle(
                           'Média de Notas por Item',
                           Icons.assessment,
                           primaryColor,
                         ),
-                        _buildItemsTable(relatorio['tabelaItens'] as String, isDark, textColor, primaryColor),
+                        _buildItemsTable(
+                          relatorio['tabelaItens'] as String,
+                          isDark,
+                          textColor,
+                          primaryColor,
+                        ),
                         const SizedBox(height: 24),
                       ],
 
@@ -705,10 +721,18 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
     );
   }
 
-  Widget _buildItemsTable(String tabelaTexto, bool isDark, Color textColor, Color primaryColor) {
+  Widget _buildItemsTable(
+    String tabelaTexto,
+    bool isDark,
+    Color textColor,
+    Color primaryColor,
+  ) {
     // Parsear a tabela de itens do texto
-    final lines = tabelaTexto.split('\n').where((line) => line.contains('-') && line.contains('Item')).toList();
-    
+    final lines = tabelaTexto
+        .split('\n')
+        .where((line) => line.contains('-') && line.contains('Item'))
+        .toList();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -727,10 +751,10 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
             if (parts.length == 2) {
               final itemLabel = parts[0].replaceAll('- ', '').trim();
               final valor = parts[1].trim();
-              
+
               // Parsear valor para exibir como decimal
               final nota = double.tryParse(valor) ?? 0.0;
-              
+
               // Cor baseada na nota (verde > 8, amarelo 6-8, vermelho < 6)
               Color notaColor;
               if (nota >= 8.5) {
@@ -742,7 +766,7 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
               } else {
                 notaColor = Colors.red;
               }
-              
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
@@ -759,7 +783,10 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: notaColor.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(6),
@@ -826,7 +853,8 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                       ),
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (value) => setState(() => _searchQuery = value),
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value),
                         decoration: InputDecoration(
                           hintText:
                               'Buscar feedbacks por empresa, título, conteúdo, nota ou tipo...',
@@ -854,7 +882,9 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                                 )
                               : null,
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                          ),
                         ),
                         style: TextStyle(
                           color: isDark ? Colors.white : Colors.black87,
@@ -876,7 +906,9 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                             : const Color(0xFFFBFBFB),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isDark ? Colors.grey[800]! : const Color(0xFFDEE2E7),
+                          color: isDark
+                              ? Colors.grey[800]!
+                              : const Color(0xFFDEE2E7),
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -921,7 +953,9 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                                     : Colors.white,
                                 icon: Icon(
                                   Icons.keyboard_arrow_down,
-                                  color: isDark ? Colors.white70 : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
                                 ),
                                 items: _filterOptions.map((option) {
                                   return DropdownMenuItem<String>(
@@ -941,7 +975,9 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                                 onChanged: (option) async {
                                   if (option == null) return;
                                   if (option == 'DATA') {
-                                    final pickedRange = await _pickDateRange(context);
+                                    final pickedRange = await _pickDateRange(
+                                      context,
+                                    );
                                     if (pickedRange != null) {
                                       setState(() {
                                         _selectedDateRange = pickedRange;
@@ -995,26 +1031,54 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF8C1D18),
                       minimumSize: const Size(160, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: () async {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Gerando planilha, por favor aguarde...'),
-                        duration: Duration(seconds: 2),
-                      ));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Gerando planilha, por favor aguarde...',
+                          ),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
                       try {
-                        final docs = (await vm.feedbacksStream().first).docs.map((d) => d.data()).toList();
+                        final docs = (await vm.feedbacksStream().first).docs
+                            .map((d) => d.data())
+                            .toList();
                         // Apply same local filter as the UI
-                        final docsFiltered = vm.aplicarFiltroEBusca((await vm.feedbacksStream().first).docs, _selectedFilter, _searchQuery, _selectedDateRange).map((d) => d.data()).toList();
-                        await ExcelService.gerarExcel(feedbacks: docsFiltered.cast<Map<String, dynamic>>());
+                        final docsFiltered = vm
+                            .aplicarFiltroEBusca(
+                              (await vm.feedbacksStream().first).docs,
+                              _selectedFilter,
+                              _searchQuery,
+                              _selectedDateRange,
+                            )
+                            .map((d) => d.data())
+                            .toList();
+                        await ExcelService.gerarExcel(
+                          feedbacks: docsFiltered.cast<Map<String, dynamic>>(),
+                        );
                       } catch (e) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao exportar Excel: $e')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Erro ao exportar Excel: $e'),
+                            ),
+                          );
                         }
                       }
                     },
@@ -1023,9 +1087,17 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2E7D32),
                       minimumSize: const Size(160, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ],
@@ -1111,7 +1183,6 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
 
                       if (filteredFeedbacks.isEmpty)
                         Expanded(
@@ -1379,6 +1450,12 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
     required FeedbacksViewModel vm,
     required String type,
   }) {
+    final bool hasSavedAnalysis =
+        data['analiseIA'] != null && data['analiseIA'] is Map<String, dynamic>;
+    final Map<String, dynamic>? savedAnalysis = hasSavedAnalysis
+        ? Map<String, dynamic>.from(data['analiseIA'] as Map<String, dynamic>)
+        : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -1583,7 +1660,7 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                             TextButton.icon(
                               onPressed: _processingFeedbackId == id
                                   ? null
-                                  : () => _analisarFeedback(id),
+                                  : () => _analisarFeedback(id, savedAnalysis),
                               icon: _processingFeedbackId == id
                                   ? const SizedBox(
                                       width: 16,
@@ -1592,10 +1669,25 @@ class _FeedbacksPageState extends State<FeedbacksPage> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Icon(Icons.analytics_outlined),
-                              label: const Text('Análise IA'),
+                                  : Icon(
+                                      Icons.analytics_outlined,
+                                      color: hasSavedAnalysis
+                                          ? Colors.green
+                                          : Colors.red,
+                                    ),
+                              label: Text(
+                                'Análise IA',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: hasSavedAnalysis
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ),
                               style: TextButton.styleFrom(
-                                foregroundColor: primaryColor,
+                                foregroundColor: hasSavedAnalysis
+                                    ? Colors.green
+                                    : Colors.red,
                                 textStyle: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),

@@ -42,6 +42,11 @@ class FeedbackDetailPage extends StatelessWidget {
     final item6 = feedbackData['item6'] as int? ?? 0;
     final item7 = feedbackData['item7'] as int? ?? 0;
     final item8 = feedbackData['item8'] as int? ?? 0;
+    final analiseIA = feedbackData['analiseIA'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(
+            feedbackData['analiseIA'] as Map<String, dynamic>,
+          )
+        : null;
     final Timestamp? createdAt = feedbackData['data'] as Timestamp?;
     final dateLabel = createdAt != null
         ? DateTime.fromMillisecondsSinceEpoch(
@@ -166,7 +171,11 @@ class FeedbackDetailPage extends StatelessWidget {
                             const SizedBox(height: 6),
                           ],
                           if (item7 > 0) ...[
-                            _ratingRow('Qualidade do Suporte Técnico', item7, isDark),
+                            _ratingRow(
+                              'Qualidade do Suporte Técnico',
+                              item7,
+                              isDark,
+                            ),
                             const SizedBox(height: 6),
                           ],
                           if (item8 > 0) ...[
@@ -174,9 +183,14 @@ class FeedbackDetailPage extends StatelessWidget {
                             const SizedBox(height: 12),
                           ],
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF2A2A2A) : Colors.grey[100],
+                              color: isDark
+                                  ? const Color(0xFF2A2A2A)
+                                  : Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: const Color(0xFF8C1D18),
@@ -195,7 +209,9 @@ class FeedbackDetailPage extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  notaMedia > 0 ? notaMedia.toStringAsFixed(2) : '-',
+                                  notaMedia > 0
+                                      ? notaMedia.toStringAsFixed(2)
+                                      : '-',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -242,20 +258,26 @@ class FeedbackDetailPage extends StatelessWidget {
                               child: Image.network(
                                 photoUrl,
                                 fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return SizedBox(
-                                    height: 180,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                            : null,
-                                      ),
-                                    ),
-                                  );
-                                },
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return SizedBox(
+                                        height: 180,
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            value:
+                                                loadingProgress
+                                                        .expectedTotalBytes !=
+                                                    null
+                                                ? loadingProgress
+                                                          .cumulativeBytesLoaded /
+                                                      loadingProgress
+                                                          .expectedTotalBytes!
+                                                : null,
+                                          ),
+                                        ),
+                                      );
+                                    },
                                 errorBuilder: (context, error, stackTrace) {
                                   return SizedBox(
                                     height: 180,
@@ -263,12 +285,81 @@ class FeedbackDetailPage extends StatelessWidget {
                                       child: Text(
                                         'Não foi possível carregar a imagem',
                                         style: TextStyle(
-                                          color: isDark ? Colors.white : Colors.black87,
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black87,
                                         ),
                                       ),
                                     ),
                                   );
                                 },
+                              ),
+                            ),
+                          ],
+                          if (analiseIA != null) ...[
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Análise IA',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _analysisRow(
+                              'Sentimento',
+                              analiseIA['sentimento']?.toString() ?? '-',
+                              isDark,
+                            ),
+                            const SizedBox(height: 8),
+                            _analysisRow(
+                              'Categoria',
+                              analiseIA['categoria']?.toString() ?? '-',
+                              isDark,
+                            ),
+                            const SizedBox(height: 8),
+                            _analysisRow(
+                              'Urgência',
+                              analiseIA['urgencia']?.toString() ?? '-',
+                              isDark,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Resumo',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              analiseIA['resumo']?.toString() ?? '-',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: secondaryText,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Sugestão',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              analiseIA['sugestao']?.toString() ?? '-',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: secondaryText,
+                                height: 1.4,
                               ),
                             ),
                           ],
@@ -288,7 +379,7 @@ class FeedbackDetailPage extends StatelessWidget {
   Widget _detailRow(String label, String value, bool isDark) {
     final textColor = isDark ? Colors.white : Colors.black87;
     final labelColor = isDark ? Colors.grey[300] : Colors.black87;
-    
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -296,17 +387,11 @@ class FeedbackDetailPage extends StatelessWidget {
           width: 120,
           child: Text(
             '$label:',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: labelColor,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: labelColor),
           ),
         ),
         Expanded(
-          child: Text(
-            value,
-            style: TextStyle(color: textColor),
-          ),
+          child: Text(value, style: TextStyle(color: textColor)),
         ),
       ],
     );
@@ -315,7 +400,7 @@ class FeedbackDetailPage extends StatelessWidget {
   Widget _ratingRow(String label, int rating, bool isDark) {
     final textColor = isDark ? Colors.white : Colors.black87;
     final labelColor = isDark ? Colors.grey[300] : Colors.black87;
-    
+
     // Determinar cor com base na nota
     Color ratingColor;
     if (rating >= 9) {
@@ -327,18 +412,12 @@ class FeedbackDetailPage extends StatelessWidget {
     } else {
       ratingColor = Colors.red;
     }
-    
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: labelColor,
-            ),
-          ),
+          child: Text(label, style: TextStyle(fontSize: 14, color: labelColor)),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -355,6 +434,27 @@ class FeedbackDetailPage extends StatelessWidget {
               fontSize: 13,
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _analysisRow(String label, String value, bool isDark) {
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final labelColor = isDark ? Colors.grey[300] : Colors.black87;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            '$label:',
+            style: TextStyle(fontWeight: FontWeight.bold, color: labelColor),
+          ),
+        ),
+        Expanded(
+          child: Text(value, style: TextStyle(color: textColor)),
         ),
       ],
     );

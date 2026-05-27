@@ -52,10 +52,25 @@ class _PedidosGestorPageState extends State<PedidosGestorPage> {
             total: data['total']?.toString() ?? '',
             details: details,
             notes: notes,
+            companyName: data['empresa']?.toString() ?? '',
+            createdAt: createdAt is Timestamp ? createdAt.toDate().toLocal() : null,
           );
         }).toList();
       },
     );
+  }
+
+  bool _isNewPedido(PedidoRecord order) {
+    if (order.status.toLowerCase() != 'novo') return false;
+    if (order.createdAt == null) return false;
+    return DateTime.now().difference(order.createdAt!).inDays < 2;
+  }
+
+  String _effectivePedidoStatus(PedidoRecord order) {
+    if (order.status.toLowerCase() == 'novo' && !_isNewPedido(order)) {
+      return 'Pendente';
+    }
+    return order.status;
   }
 
   @override
@@ -132,7 +147,9 @@ class _PedidosGestorPageState extends State<PedidosGestorPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Pedido ${order.id}',
+                                      order.companyName.isNotEmpty
+                                          ? 'Pedido ${order.companyName}'
+                                          : 'Pedido ${order.id}',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16,
@@ -150,21 +167,21 @@ class _PedidosGestorPageState extends State<PedidosGestorPage> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: order.status == 'Concluído'
-                                      ? const Color(0xFFE3F7E8)
-                                      : order.status == 'Cancelado'
+                                color: _effectivePedidoStatus(order) == 'Concluído'
+                                    ? const Color(0xFFE3F7E8)
+                                    : _effectivePedidoStatus(order) == 'Cancelado'
                                           ? const Color(0xFFFDEAEA)
                                           : const Color(0xFFEEF3FF),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  order.status,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: order.status == 'Concluído'
-                                        ? const Color(0xFF1B7F35)
-                                        : order.status == 'Cancelado'
+                                _effectivePedidoStatus(order),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _effectivePedidoStatus(order) == 'Concluído'
+                                      ? const Color(0xFF1B7F35)
+                                      : _effectivePedidoStatus(order) == 'Cancelado'
                                             ? const Color(0xFFB00020)
                                             : const Color(0xFF1A3F9B),
                                   ),

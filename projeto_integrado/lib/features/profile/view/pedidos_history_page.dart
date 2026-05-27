@@ -18,35 +18,109 @@ class _PedidosHistoryPageState extends State<PedidosHistoryPage> {
   final AuthService _auth = AuthService();
 
   Stream<List<PedidoRecord>> _ordersStream() {
-    final uid = _auth.currentUserId;
-    if (uid == null) {
+    final user = _auth.getCurrentUser();
+    final uid = user?.uid;
+    final email = user?.email?.trim().toLowerCase();
+
+    if (uid == null && (email == null || email.isEmpty)) {
       return Stream<List<PedidoRecord>>.value(const <PedidoRecord>[]);
     }
-    // Try to read from 'pedidos' collection (Portuguese) and fallback to 'orders'
-    final ref = _db.collection('pedidos');
-    return ref.where('userId', isEqualTo: uid).orderBy('createdAt', descending: true).snapshots().map(
-      (snap) => snap.docs.map((d) {
-        final data = d.data();
-        final createdAt = data['createdAt'];
-        String formattedDate = data['date']?.toString() ?? '';
-        if (createdAt is Timestamp) {
-          formattedDate = createdAt.toDate().toLocal().toString().split('.').first;
-        }
-        final summary = data['summary']?.toString().trim() ?? '';
-        final details = data['details']?.toString().trim() ?? data['observacoes']?.toString().trim() ?? '';
-        final notes = data['notes']?.toString().trim() ?? 'Sem observações adicionais';
 
-        return PedidoRecord(
-          id: d.id,
-          date: formattedDate,
-          status: data['status']?.toString() ?? 'Novo',
-          summary: summary.isNotEmpty ? summary : 'Pedido de orçamento',
-          items: List<String>.from(data['items'] ?? []),
-          total: data['total']?.toString() ?? '',
-          details: details,
-          notes: notes,
-        );
-      }).toList(),
+    final ref = _db.collection('pedidos');
+
+    final query = uid != null
+        ? ref.where('userId', isEqualTo: uid)
+        : ref.where('userEmailLower', isEqualTo: email);
+
+    return query.snapshots().asyncMap((snap) async {
+      if (snap.docs.isNotEmpty) {
+        return _pedidosFromDocs(snap.docs);
+      }
+
+      if (email != null && email.isNotEmpty) {
+        final fallbackSnapshot = await ref
+            .where('userEmailLower', isEqualTo: email)
+            .get();
+        if (fallbackSnapshot.docs.isNotEmpty) {
+          return _pedidosFromDocs(fallbackSnapshot.docs);
+        }
+
+        final typedEmailLowerSnapshot = await ref
+            .where('emailLower', isEqualTo: email)
+            .get();
+        if (typedEmailLowerSnapshot.docs.isNotEmpty) {
+          return _pedidosFromDocs(typedEmailLowerSnapshot.docs);
+        }
+
+        final rawEmailSnapshot = await ref
+            .where('email', isEqualTo: email)
+            .get();
+        if (rawEmailSnapshot.docs.isNotEmpty) {
+          return _pedidosFromDocs(rawEmailSnapshot.docs);
+        }
+      }
+
+      return const <PedidoRecord>[];
+    });
+  }
+
+  List<PedidoRecord> _pedidosFromDocs(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final sortedDocs = docs.toList()
+      ..sort((a, b) {
+        final aDate = a.data()['createdAt'];
+        final bDate = b.data()['createdAt'];
+        if (aDate is Timestamp && bDate is Timestamp) {
+          return bDate.compareTo(aDate);
+        }
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        return -1;
+      });
+
+    return sortedDocs.map((d) => _pedidoFromDoc(d)).toList();
+  }
+
+  bool _isNewPedido(PedidoRecord order) {
+    if (order.status.toLowerCase() != 'novo') return false;
+    if (order.createdAt == null) return false;
+    return DateTime.now().difference(order.createdAt!).inDays < 2;
+  }
+
+  String _effectivePedidoStatus(PedidoRecord order) {
+    if (order.status.toLowerCase() == 'novo' && !_isNewPedido(order)) {
+      return 'Pendente';
+    }
+    return order.status;
+  }
+
+  PedidoRecord _pedidoFromDoc(QueryDocumentSnapshot<Map<String, dynamic>> d) {
+    final data = d.data();
+    final createdAt = data['createdAt'];
+    String formattedDate = data['date']?.toString() ?? '';
+    if (createdAt is Timestamp) {
+      formattedDate = createdAt.toDate().toLocal().toString().split('.').first;
+    }
+    final summary = data['summary']?.toString().trim() ?? '';
+    final details =
+        data['details']?.toString().trim() ??
+        data['observacoes']?.toString().trim() ??
+        '';
+    final notes =
+        data['notes']?.toString().trim() ?? 'Sem observações adicionais';
+
+    return PedidoRecord(
+      id: d.id,
+      date: formattedDate,
+      status: data['status']?.toString() ?? 'Novo',
+      summary: summary.isNotEmpty ? summary : 'Pedido de orçamento',
+      items: List<String>.from(data['items'] ?? []),
+      total: data['total']?.toString() ?? '',
+      details: details,
+      notes: notes,
+      companyName: data['empresa']?.toString() ?? '',
+      createdAt: createdAt is Timestamp ? createdAt.toDate().toLocal() : null,
     );
   }
 
@@ -129,23 +203,23 @@ class _PedidosHistoryPageState extends State<PedidosHistoryPage> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: order.status == 'Concluído'
+                              color: _effectivePedidoStatus(order) == 'Concluído'
                                   ? const Color(0xFFE3F7E8)
-                                  : order.status == 'Cancelado'
-                                      ? const Color(0xFFFDEAEA)
-                                      : const Color(0xFFEEF3FF),
+                                  : _effectivePedidoStatus(order) == 'Cancelado'
+                                  ? const Color(0xFFFDEAEA)
+                                  : const Color(0xFFEEF3FF),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              order.status,
+                              _effectivePedidoStatus(order),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: order.status == 'Concluído'
+                                color: _effectivePedidoStatus(order) == 'Concluído'
                                     ? const Color(0xFF1B7F35)
-                                    : order.status == 'Cancelado'
-                                        ? const Color(0xFFB00020)
-                                        : const Color(0xFF1A3F9B),
+                                    : _effectivePedidoStatus(order) == 'Cancelado'
+                                    ? const Color(0xFFB00020)
+                                    : const Color(0xFF1A3F9B),
                               ),
                             ),
                           ),
@@ -170,9 +244,7 @@ class _PedidosHistoryPageState extends State<PedidosHistoryPage> {
                           const Spacer(),
                           Text(
                             order.total,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),

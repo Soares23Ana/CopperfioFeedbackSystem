@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:projeto_integrado/data/models/chamado_model.dart';
+import 'package:projeto_integrado/data/repositories/chamados_repository.dart';
 import 'package:projeto_integrado/services/auth_service.dart';
 import 'package:projeto_integrado/services/gemini_service.dart';
 
@@ -16,19 +17,24 @@ class ChamadoDetailPage extends StatefulWidget {
 
 class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
   final AuthService _authService = AuthService();
+  final ChamadosRepository _repository = ChamadosRepository();
   String? _usuarioEmail;
-  String? _emailSuggestionSubject;
-  String? _emailSuggestionBody;
-  String? _emailSuggestionError;
-  bool _showEmailSuggestion = false;
-  bool _isGeneratingEmailSuggestion = false;
+  String? _savedEmailTemplate;
+  Future<String>? _emailTemplateFuture;
+  final ScrollController _scrollController = ScrollController();
   late final Future<Map<String, dynamic>> _planoDeAcaoFuture;
 
   @override
   void initState() {
     super.initState();
-    _planoDeAcaoFuture = _gerarPlanoDeAcao();
+    _planoDeAcaoFuture = _carregarOuGerarPlanoDeAcao();
     _loadUsuarioEmailIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsuarioEmailIfNeeded() async {
@@ -50,10 +56,21 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
     }
   }
 
-  Future<Map<String, dynamic>> _gerarPlanoDeAcao() async {
-    final gemini = GeminiService();
+  Future<Map<String, dynamic>> _carregarOuGerarPlanoDeAcao() async {
     try {
-      return await gemini.analisarPlanoDeAcao([
+      final chamadoData = await _repository.buscarChamadoDados(
+        widget.chamado.id,
+      );
+      if (chamadoData != null) {
+        final existingAnalise = chamadoData['analiseIA'];
+        if (existingAnalise is Map<String, dynamic>) {
+          _savedEmailTemplate = existingAnalise['emailTemplate'] as String?;
+          return Map<String, dynamic>.from(existingAnalise);
+        }
+      }
+
+      final gemini = GeminiService();
+      final plano = await gemini.analisarPlanoDeAcao([
         {
           'titulo': widget.chamado.titulo,
           'descricao': widget.chamado.descricao,
@@ -61,8 +78,10 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
           'notaMedia': 0,
         },
       ]);
+
+      await _repository.salvarAnaliseChamado(widget.chamado.id, plano);
+      return plano;
     } catch (e) {
-      // Return a friendly fallback so the UI can show a helpful message
       return {
         'status': 'indisponível',
         'problemaPrincipal': '',
@@ -71,45 +90,9 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
         'acoesMedioTermo': [],
         'metricasMonitoramento': [],
         'estimativaImpacto': '',
-        'errorMessage': 'Não foi possível gerar sugestão de plano de ação no momento. Tente novamente mais tarde.'
+        'errorMessage':
+            'Não foi possível gerar sugestão de plano de ação no momento. Tente novamente mais tarde.',
       };
-    }
-  }
-
-  Future<void> _generateEmailSuggestion() async {
-    setState(() {
-      _isGeneratingEmailSuggestion = true;
-      _emailSuggestionError = null;
-    });
-
-    final gemini = GeminiService();
-    final clienteName = widget.chamado.usuarioNome.isNotEmpty
-        ? widget.chamado.usuarioNome
-        : 'Cliente';
-    try {
-      final result = await gemini.gerarSugestaoDeEmail(
-        titulo: widget.chamado.titulo,
-        descricao: widget.chamado.descricao,
-        clienteNome: clienteName,
-        empresaNome: widget.chamado.empresaNome,
-        prioridade: widget.chamado.prioridade,
-        dataAbertura: _formatDate(widget.chamado.dataAbertura),
-      );
-
-      setState(() {
-        _emailSuggestionSubject = result['assunto']?.toString().trim();
-        _emailSuggestionBody = result['mensagem']?.toString().trim();
-      });
-    } catch (e) {
-      setState(() {
-        _emailSuggestionError = e.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isGeneratingEmailSuggestion = false;
-        });
-      }
     }
   }
 
@@ -118,14 +101,8 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _launchEmail(String email, String subject) async {
-    final uri = Uri(
-      scheme: 'mailto',
-      path: email,
-      queryParameters: {
-        'subject': subject,
-      },
-    );
+  Future<void> _launchEmail(String email) async {
+    final uri = Uri(scheme: 'mailto', path: email);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -153,221 +130,281 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalhes do Chamado')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      widget.chamado.titulo,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+      body: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // CARD 1: INFORMAÇÕES DO CHAMADO
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        widget.chamado.titulo,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              widget.chamado.status
+                                  .replaceAll('_', ' ')
+                                  .toUpperCase(),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.14),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            widget.chamado.status
-                                .replaceAll('_', ' ')
-                                .toUpperCase(),
-                            style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(width: 12),
+                          Text(
+                            widget.chamado.prioridade.toUpperCase(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
                               fontSize: 12,
                             ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInfoRow(
+                        Icons.business,
+                        'Empresa',
+                        widget.chamado.empresaNome,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(
+                        Icons.person_outline,
+                        'Solicitante',
+                        widget.chamado.usuarioNome,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(
+                        Icons.email,
+                        'E-mail do solicitante',
+                        (_usuarioEmail ?? widget.chamado.usuarioEmail)
+                                .isNotEmpty
+                            ? (_usuarioEmail ?? widget.chamado.usuarioEmail)
+                            : 'Não informado',
+                        highlight:
+                            (_usuarioEmail ?? widget.chamado.usuarioEmail)
+                                .isNotEmpty,
+                        highlightColor: primaryColor,
+                      ),
+
+                      // (moved _showFullScreenTemplate method to class scope)
+                      const SizedBox(height: 8),
+                      _buildInfoRow(
+                        Icons.calendar_today,
+                        'Aberto em',
+                        _formatDate(widget.chamado.dataAbertura),
+                      ),
+                      if (widget.chamado.dataFechamento != null) ...[
+                        const SizedBox(height: 8),
+                        _buildInfoRow(
+                          Icons.check_circle,
+                          'Fechado em',
+                          _formatDate(widget.chamado.dataFechamento!),
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          widget.chamado.prioridade.toUpperCase(),
+                      ],
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Descrição',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.chamado.descricao,
+                        style: const TextStyle(fontSize: 14, height: 1.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Mensagens: ${widget.chamado.mensagens.length}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // CARD 2: SUGESTÃO DE PLANO DE AÇÃO (EXPANDÍVEL)
+              FutureBuilder<Map<String, dynamic>>(
+                future: _planoDeAcaoFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: const [
+                            CircularProgressIndicator(),
+                            SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                'Gerando sugestão de plano de ação...',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'Não foi possível gerar uma sugestão de plano de ação: ${snapshot.error}',
                           style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                            color: Colors.redAccent,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final plano = snapshot.data ?? {};
+                  if (plano.containsKey('errorMessage')) {
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          plano['errorMessage'].toString(),
+                          style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _buildActionPlanSection(
+                            plano,
+                            () => _requestEmailTemplate(plano),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (_emailTemplateFuture != null) ...[
+                        Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: FutureBuilder<String>(
+                              future: _emailTemplateFuture,
+                              builder: (context, emailSnapshot) {
+                                if (emailSnapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const SizedBox(
+                                    height: 120,
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                }
+                                if (emailSnapshot.hasError) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Não foi possível gerar o modelo de e-mail: ${emailSnapshot.error}',
+                                        style: const TextStyle(
+                                          color: Colors.redAccent,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      _buildEmailTemplateSection(
+                                        _buildFallbackEmailTemplate(plano),
+                                      ),
+                                    ],
+                                  );
+                                }
+                                return _buildEmailTemplateSection(
+                                  emailSnapshot.data ??
+                                      _buildFallbackEmailTemplate(plano),
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInfoRow(
-                      Icons.business,
-                      'Empresa',
-                      widget.chamado.empresaNome,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      Icons.person_outline,
-                      'Solicitante',
-                      widget.chamado.usuarioNome,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      Icons.email,
-                      'E-mail do solicitante',
-                      (_usuarioEmail ?? widget.chamado.usuarioEmail)
-                              .isNotEmpty
-                          ? (_usuarioEmail ?? widget.chamado.usuarioEmail)
-                          : 'Não informado',
-                      highlight: (_usuarioEmail ?? widget.chamado.usuarioEmail)
-                          .isNotEmpty,
-                      highlightColor: primaryColor,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      Icons.calendar_today,
-                      'Aberto em',
-                      _formatDate(widget.chamado.dataAbertura),
-                    ),
-                    if (widget.chamado.dataFechamento != null) ...[
-                      const SizedBox(height: 8),
-                      _buildInfoRow(
-                        Icons.check_circle,
-                        'Fechado em',
-                        _formatDate(widget.chamado.dataFechamento!),
-                      ),
                     ],
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Descrição',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.chamado.descricao,
-                      style: const TextStyle(fontSize: 14, height: 1.5),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Mensagens: ${widget.chamado.mensagens.length}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    FutureBuilder<Map<String, dynamic>>(
-                      future: _planoDeAcaoFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Row(
-                            children: const [
-                              CircularProgressIndicator(),
-                              SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  'Gerando sugestão de plano de ação...',
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-
-                        if (snapshot.hasError) {
-                          return Text(
-                            'Não foi possível gerar uma sugestão de plano de ação: ${snapshot.error}',
-                            style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 13,
-                            ),
-                          );
-                        }
-
-                        final plano = snapshot.data ?? {};
-                        final emailAddress = (_usuarioEmail ?? widget.chamado.usuarioEmail).isNotEmpty
-                            ? (_usuarioEmail ?? widget.chamado.usuarioEmail)
-                            : '';
-
-                        final widgetList = <Widget>[
-                          if (plano.containsKey('errorMessage')) ...[
-                            Text(
-                              plano['errorMessage'].toString(),
-                              style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          _buildActionPlanSection(plano),
-                          const SizedBox(height: 24),
-                          _buildEmailSuggestionButton(emailAddress),
-                        ];
-
-                        if (_showEmailSuggestion) {
-                          widgetList.add(const SizedBox(height: 24));
-                          if (_isGeneratingEmailSuggestion) {
-                            widgetList.add(Row(
-                              children: const [
-                                CircularProgressIndicator(),
-                                SizedBox(width: 16),
-                                Expanded(child: Text('Gerando sugestão de email...')),
-                              ],
-                            ));
-                          } else if (_emailSuggestionError != null) {
-                            widgetList.add(Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _emailSuggestionError!,
-                                  style: const TextStyle(
-                                    color: Colors.redAccent,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _buildEmailSuggestionSection(emailAddress),
-                              ],
-                            ));
-                          } else if (_emailSuggestionSubject != null && _emailSuggestionBody != null) {
-                            widgetList.add(_buildEmailSuggestionSection(emailAddress));
-                          }
-                        }
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: widgetList,
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActionPlanSection(Map<String, dynamic> plano) {
+  Widget _buildActionPlanSection(
+    Map<String, dynamic> plano,
+    VoidCallback onGenerateEmail,
+  ) {
     final status = plano['status']?.toString() ?? '';
-    final resumoPlano = plano['resumoPlano']?.toString() ?? '';
-    final resumoChamado = plano['resumoChamado']?.toString() ?? '';
-    final impactoEmpresa = plano['impactoEmpresa']?.toString() ?? '';
     final problemaPrincipal = plano['problemaPrincipal']?.toString() ?? '';
     final impactoNegocio = plano['impactoNegocio']?.toString() ?? '';
     final acoesPrioritarias = List<String>.from(
@@ -382,47 +419,35 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Sugestão de Plano de Ação',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8C1D18).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF8C1D18).withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.lightbulb_outline,
+                size: 22,
+                color: Color(0xFF8C1D18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Sugestão de Plano de Ação',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8C1D18),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        if (resumoChamado.isNotEmpty) ...[
-          Text(
-            'Explicação do chamado',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey[800]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            resumoChamado,
-            style: const TextStyle(fontSize: 14, height: 1.5),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (impactoEmpresa.isNotEmpty) ...[
-          Text(
-            'Impacto na empresa',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey[800]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            impactoEmpresa,
-            style: const TextStyle(fontSize: 14, height: 1.5),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (resumoPlano.isNotEmpty) ...[
-          Text(
-            'Resumo do plano',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey[800]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            resumoPlano,
-            style: const TextStyle(fontSize: 14, height: 1.5),
-          ),
-          const SizedBox(height: 12),
-        ],
+        const SizedBox(height: 16),
         if (status.isNotEmpty)
           _buildInfoRow(Icons.timeline, 'Status da análise', status),
         if (problemaPrincipal.isNotEmpty) ...[
@@ -438,34 +463,90 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
           _buildInfoRow(Icons.insights, 'Impacto no negócio', impactoNegocio),
         ],
         if (acoesPrioritarias.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const Text(
             'Ações prioritárias',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 8),
-          ...acoesPrioritarias.map((acao) => _buildBulletItem(acao)),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: acoesPrioritarias
+                  .map((acao) => _buildBulletItem(acao))
+                  .toList(),
+            ),
+          ),
         ],
         if (acoesMedioTermo.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const Text(
             'Ações médio prazo',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 8),
-          ...acoesMedioTermo.map((acao) => _buildBulletItem(acao)),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: acoesMedioTermo
+                  .map((acao) => _buildBulletItem(acao))
+                  .toList(),
+            ),
+          ),
         ],
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 52,
+          child: ElevatedButton(
+            onPressed: onGenerateEmail,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9C1818),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'Modelo de e-mail',
+              style: TextStyle(fontSize: 16),
+            ),
+          ),
+        ),
         if (metricasMonitoramento.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const Text(
             'Métricas de monitoramento',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 8),
-          ...metricasMonitoramento.map((acao) => _buildBulletItem(acao)),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: metricasMonitoramento
+                  .map((acao) => _buildBulletItem(acao))
+                  .toList(),
+            ),
+          ),
         ],
         if (estimativaImpacto.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           _buildInfoRow(
             Icons.show_chart,
             'Estimativa de impacto',
@@ -473,6 +554,55 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
           ),
         ],
       ],
+    );
+  }
+
+  void _showFullScreenTemplate(String emailTemplate) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: EdgeInsets.zero,
+          child: SafeArea(
+            child: Scaffold(
+              appBar: AppBar(
+                title: const Text('Visualizar Template'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.copy),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: emailTemplate));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Email copiado para a área de transferência!',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: SelectableText(
+                  emailTemplate,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontFamily: 'monospace',
+                    height: 1.6,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -537,33 +667,157 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
     );
   }
 
-  Widget _buildEmailSuggestionButton(String emailAddress) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: () {
-          setState(() {
-            _showEmailSuggestion = true;
-            _emailSuggestionError = null;
-          });
-          if (_emailSuggestionSubject == null && _emailSuggestionBody == null) {
-            _generateEmailSuggestion();
-          }
-        },
-        icon: const Icon(Icons.email_outlined),
-        label: const Text('Gerar sugestão de email para o cliente'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF8C1D18),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      ),
-    );
+  Future<void> _requestEmailTemplate(Map<String, dynamic> plano) async {
+    if (_savedEmailTemplate != null) {
+      setState(() {
+        _emailTemplateFuture = Future.value(_savedEmailTemplate);
+      });
+    } else {
+      setState(() {
+        _emailTemplateFuture = _gerarEmailTemplate(plano);
+      });
+    }
+    _emailTemplateFuture?.whenComplete(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    });
   }
 
-  Widget _buildEmailSuggestionSection(String emailAddress) {
-    final subject = _emailSuggestionSubject ?? 'Resposta ao chamado';
-    final body = _emailSuggestionBody ?? '';
+  Future<String> _gerarEmailTemplate(Map<String, dynamic> plano) async {
+    final gemini = GeminiService();
+    final chamadoData = {
+      'id': widget.chamado.id,
+      'titulo': widget.chamado.titulo,
+      'descricao': widget.chamado.descricao,
+      'mensagem': widget.chamado.descricao,
+      'usuarioNome': widget.chamado.usuarioNome,
+      'usuarioEmail': _usuarioEmail ?? widget.chamado.usuarioEmail,
+      'empresaNome': widget.chamado.empresaNome,
+      'prioridade': widget.chamado.prioridade,
+      'status': widget.chamado.status,
+    };
+
+    final emailTemplate = await gemini.gerarEmailResposta(chamadoData, plano);
+    if (emailTemplate.isNotEmpty) {
+      _savedEmailTemplate = emailTemplate;
+      try {
+        await _repository.salvarTemplateEmailChamado(
+          widget.chamado.id,
+          emailTemplate,
+        );
+      } catch (_) {
+        // Não bloqueia a exibição caso falhe ao salvar.
+      }
+    }
+    return emailTemplate;
+  }
+
+  String _buildFallbackEmailTemplate(Map<String, dynamic> plano) {
+    final clienteName = widget.chamado.usuarioNome.isNotEmpty
+        ? widget.chamado.usuarioNome
+        : 'Cliente';
+    final emailAddress =
+        (_usuarioEmail ?? widget.chamado.usuarioEmail).isNotEmpty
+        ? (_usuarioEmail ?? widget.chamado.usuarioEmail)
+        : 'email@exemplo.com';
+    final dataAberturaFormatada = _formatDate(widget.chamado.dataAbertura);
+    final problemaPrincipal =
+        plano['problemaPrincipal']?.toString() ?? 'Problema reportado';
+    final impactoNegocio = plano['impactoNegocio']?.toString() ?? '';
+    final acoesPrioritarias = List<String>.from(
+      plano['acoesPrioritarias'] ?? [],
+    );
+
+    final acoesTexto = acoesPrioritarias.isNotEmpty
+        ? acoesPrioritarias
+              .asMap()
+              .entries
+              .map((entry) {
+                return '**AÇÃO ${entry.key + 1}: ${entry.value.split('-').first.trim()}**\n- Timeline: [Defina aqui]\n- Responsável: [Defina aqui]\n- Objetivo: [Defina aqui]';
+              })
+              .join('\n\n')
+        : '''**AÇÃO 1: Análise Preliminar**
+- Timeline: 24-48 horas
+- Responsável: Equipe Técnica
+
+**AÇÃO 2: Investigação da Causa Raiz**
+- Timeline: 3-5 dias úteis
+- Responsável: Engenharia
+
+**AÇÃO 3: Implementação de Medidas Corretivas**
+- Timeline: 5-10 dias úteis
+- Responsável: Setor Responsável
+
+**AÇÃO 4: Teste de Validação**
+- Timeline: 10-15 dias úteis
+- Responsável: QA
+
+**AÇÃO 5: Comunicação de Resultado**
+- Timeline: Até 15 dias
+- Responsável: Gestor de Qualidade''';
+
+    return '''Assunto: Re: ${widget.chamado.titulo} - Chamado #${widget.chamado.id} - Recebimento Confirmado
+
+Prezado(a) $clienteName,
+
+Agradecemos por entrar em contato conosco e reportar o problema em seu chamado.
+
+Confirmamos o recebimento do seu chamado em $dataAberturaFormatada com prioridade ${widget.chamado.prioridade.toUpperCase()}, e já iniciamos uma análise sobre o ocorrido.
+
+---
+
+### INFORMAÇÕES DO CHAMADO
+- ID: #${widget.chamado.id}
+- Status: ${widget.chamado.status.replaceAll('_', ' ').toUpperCase()}
+- Empresa: ${widget.chamado.empresaNome}
+- Solicitante: $clienteName
+- Email: $emailAddress
+- Data de Abertura: $dataAberturaFormatada
+
+### DESCRIÇÃO DO PROBLEMA
+${widget.chamado.descricao}
+
+### ANÁLISE PRELIMINAR
+**Problema Principal:**
+$problemaPrincipal
+
+${impactoNegocio.isNotEmpty ? '**Impacto no Negócio:**\n$impactoNegocio' : ''}
+
+---
+
+### PLANO DE AÇÃO
+
+$acoesTexto
+
+---
+
+### PRÓXIMAS ETAPAS
+
+1. Nossa equipe entrará em contato para coletar mais detalhes se necessário
+2. Você receberá atualizações a cada 3-5 dias úteis
+3. Um relatório completo será enviado após conclusão da investigação
+
+Estamos comprometidos em resolver este problema o mais rápido possível. Caso tenha urgência ou dúvidas adicionais, não hesite em nos contatar.
+
+Agradecemos pela paciência e confiança em nossos serviços.
+
+Atenciosamente,
+[NOME DA EMPRESA]
+Equipe de Suporte''';
+  }
+
+  Widget _buildEmailTemplateSection(String emailTemplate) {
+    final emailAddress =
+        (_usuarioEmail ?? widget.chamado.usuarioEmail).isNotEmpty
+        ? (_usuarioEmail ?? widget.chamado.usuarioEmail)
+        : 'email@exemplo.com';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,21 +827,19 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
           decoration: BoxDecoration(
             color: const Color(0xFF8C1D18).withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: const Color(0xFF8C1D18).withOpacity(0.3),
-            ),
+            border: Border.all(color: const Color(0xFF8C1D18).withOpacity(0.3)),
           ),
           child: Row(
-            children: const [
-              Icon(
-                Icons.recommend,
-                size: 20,
+            children: [
+              const Icon(
+                Icons.email_outlined,
+                size: 22,
                 color: Color(0xFF8C1D18),
               ),
-              SizedBox(width: 8),
-              Expanded(
+              const SizedBox(width: 8),
+              const Expanded(
                 child: Text(
-                  'Sugestão de Email para o Cliente',
+                  'Template de Email para Cliente',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -598,87 +850,81 @@ class _ChamadoDetailPageState extends State<ChamadoDetailPage> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Assunto sugerido:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subject,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Corpo do email sugerido:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                body,
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 300,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                emailTemplate,
                 style: const TextStyle(
                   fontSize: 13,
-                  height: 1.6,
+                  fontFamily: 'monospace',
+                  height: 1.7,
                   color: Colors.black87,
                 ),
               ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Expanded(
+            SizedBox(
+              width: 160,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  Clipboard.setData(ClipboardData(text: '$subject\n\n$body'));
+                  Clipboard.setData(ClipboardData(text: emailTemplate));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Sugestão de email copiada para a área de transferência!'),
+                      content: Text(
+                        'Email copiado para a área de transferência!',
+                      ),
                       duration: Duration(seconds: 2),
                     ),
                   );
                 },
-                icon: const Icon(Icons.copy),
-                label: const Text('Copiar Sugestão'),
+                icon: const Icon(Icons.content_copy),
+                label: const Text('Copiar'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[700],
                   foregroundColor: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: emailAddress.isNotEmpty
-                  ? () => _launchEmail(emailAddress, subject)
-                  : null,
-              icon: const Icon(Icons.send),
-              label: const Text('Responder Cliente'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8C1D18),
-                foregroundColor: Colors.white,
+            SizedBox(
+              width: 180,
+              child: ElevatedButton.icon(
+                onPressed: () => _showFullScreenTemplate(emailTemplate),
+                icon: const Icon(Icons.open_in_full),
+                label: const Text('Expandir'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[800],
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 160,
+              child: ElevatedButton.icon(
+                onPressed:
+                    emailAddress.isNotEmpty &&
+                        emailAddress != 'email@exemplo.com'
+                    ? () => _launchEmail(emailAddress)
+                    : null,
+                icon: const Icon(Icons.send),
+                label: const Text('Enviar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8C1D18),
+                ),
               ),
             ),
           ],

@@ -12,6 +12,8 @@ class ChamadoModel {
   final DateTime dataAbertura;
   final DateTime? dataFechamento;
   final List<String> mensagens; // IDs das mensagens de conversa
+  final bool hasAnaliseIa;
+  final bool hasEmailTemplate;
 
   ChamadoModel({
     required this.id,
@@ -27,6 +29,8 @@ class ChamadoModel {
     required this.dataAbertura,
     this.dataFechamento,
     this.mensagens = const [],
+    this.hasAnaliseIa = false,
+    this.hasEmailTemplate = false,
   });
 
   // Converter para JSON para Firebase
@@ -68,6 +72,9 @@ class ChamadoModel {
           ? DateTime.fromMillisecondsSinceEpoch(map['dataFechamento'] as int)
           : null,
       mensagens: List<String>.from(map['mensagens'] ?? []),
+      hasAnaliseIa: map['analiseIA'] != null && map['analiseIA'] is Map<String, dynamic>,
+      hasEmailTemplate: map['analiseIA'] != null && map['analiseIA'] is Map<String, dynamic> &&
+          ((map['analiseIA'] as Map<String, dynamic>)['emailTemplate'] as String?)?.isNotEmpty == true,
     );
   }
 

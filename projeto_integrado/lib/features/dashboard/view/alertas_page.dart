@@ -158,6 +158,9 @@ class _AlertasPageState extends State<AlertasPage> {
                                   'dd/MM/yyyy HH:mm',
                                 ).format(date.toDate())
                               : '';
+                          final hasIaAnalysis =
+                              feedback['analiseIA'] != null ||
+                              feedback['iaAnalysis'] != null;
 
                           return _buildAlertCard(
                             title: titulo.isEmpty ? 'Feedback crítico' : titulo,
@@ -173,6 +176,7 @@ class _AlertasPageState extends State<AlertasPage> {
                             textColor: textColor,
                             primaryColor: primaryColor,
                             isDark: isDark,
+                            hasIaAnalysis: hasIaAnalysis,
                             onDelete: () {
                               showDialog(
                                 context: context,
@@ -204,6 +208,7 @@ class _AlertasPageState extends State<AlertasPage> {
                               context,
                               vm,
                               feedback,
+                              alertas[index].id,
                             ),
                           );
                         },
@@ -281,6 +286,7 @@ class _AlertasPageState extends State<AlertasPage> {
                             textColor: textColor,
                             primaryColor: primaryColor,
                             isDark: isDark,
+                            hasIaAnalysis: false,
                             onDelete: () {
                               showDialog(
                                 context: context,
@@ -423,14 +429,71 @@ class _AlertasPageState extends State<AlertasPage> {
     BuildContext context,
     AlertasViewModel vm,
     Map<String, dynamic> feedback,
+    String feedbackId,
   ) {
+    final savedAnalysis = (feedback['analiseIA'] as Map<String, dynamic>?) ??
+        (feedback['iaAnalysis'] as Map<String, dynamic>?);
+
+    if (savedAnalysis != null) {
+      final sugestao = savedAnalysis['sugestao'] as String? ?? 'Sem sugestão disponível.';
+      final resumo = savedAnalysis['resumo'] as String? ?? '';
+      final categoria = savedAnalysis['categoria'] as String? ?? '';
+      final urgencia = savedAnalysis['urgencia']?.toString() ?? '';
+
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => AlertDialog(
+          title: const Text('Sugestão da IA'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (resumo.isNotEmpty)
+                  Text(
+                    'Resumo:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                if (resumo.isNotEmpty) const SizedBox(height: 6),
+                if (resumo.isNotEmpty) Text(resumo),
+                if (categoria.isNotEmpty) const SizedBox(height: 10),
+                if (categoria.isNotEmpty) Text('Categoria: $categoria'),
+                if (urgencia.isNotEmpty) const SizedBox(height: 6),
+                if (urgencia.isNotEmpty) Text('Urgência: $urgencia'),
+                const SizedBox(height: 12),
+                Text(
+                  'Sugestão:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(sugestao),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Sugestão da IA'),
         content: FutureBuilder<Map<String, dynamic>>(
-          future: vm.gerarAnaliseFeedback(feedback),
+          future: vm.gerarAnaliseFeedback(feedback, feedbackId: feedbackId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return SizedBox(
@@ -501,6 +564,7 @@ class _AlertasPageState extends State<AlertasPage> {
     required Color textColor,
     required Color primaryColor,
     required bool isDark,
+    required bool hasIaAnalysis,
     VoidCallback? onDelete,
     VoidCallback? onSuggestion,
   }) {
@@ -545,7 +609,9 @@ class _AlertasPageState extends State<AlertasPage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: textColor,
+                          color: hasIaAnalysis
+                              ? Colors.green[600]
+                              : Colors.red[600],
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -614,13 +680,13 @@ class _AlertasPageState extends State<AlertasPage> {
                     onPressed: onSuggestion,
                     icon: Icon(
                       Icons.lightbulb_outline,
-                      color: primaryColor,
+                      color: hasIaAnalysis ? Colors.green[600] : Colors.red[600],
                       size: 18,
                     ),
                     label: Text(
                       'Sugestão IA',
                       style: TextStyle(
-                        color: primaryColor,
+                        color: hasIaAnalysis ? Colors.green[600] : Colors.red[600],
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),

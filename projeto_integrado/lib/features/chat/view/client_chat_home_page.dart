@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:projeto_integrado/core/theme_provider.dart';
+import 'package:projeto_integrado/services/auth_service.dart';
 import 'package:projeto_integrado/services/chatbot_service.dart';
+import 'package:projeto_integrado/services/firestore_service.dart';
 import 'package:projeto_integrado/services/history_service.dart';
 
 class ClientChatHomePage extends StatefulWidget {
@@ -17,6 +19,8 @@ class _ClientChatHomePageState extends State<ClientChatHomePage> {
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ChatbotService _chatbotService = ChatbotService();
+  final AuthService _authService = AuthService();
+  final FirestoreService _firestoreService = FirestoreService();
   final List<Map<String, String>> _messages = [];
   bool _isBotTyping = false;
 
@@ -53,6 +57,7 @@ class _ClientChatHomePageState extends State<ClientChatHomePage> {
       description: 'O usuário enviou a pergunta: "$text"',
     );
 
+    unawaited(_saveChatMessageIfRelevant(text));
     _askBot(text, _messages.length - 1, isFirstInteraction);
   }
   Future<void> _askBot(String text, int botMessageIndex, bool isFirstInteraction) async {
@@ -101,6 +106,28 @@ class _ClientChatHomePageState extends State<ClientChatHomePage> {
         _isBotTyping = false;
       });
       _scrollToBottom();
+    }
+  }
+
+  Future<void> _saveChatMessageIfRelevant(String text) async {
+    try {
+      final uid = _authService.currentUserId;
+      if (uid == null) return;
+
+      final userData = await _authService.getCurrentUserData();
+      if (userData == null) return;
+
+      final userName = (userData['nome'] as String?)?.trim() ?? 'Usuário';
+      final empresaId = (userData['empresaId'] as String?)?.trim();
+
+      await _firestoreService.saveChatbotUserMessageIfRelevant(
+        userId: uid,
+        userName: userName,
+        content: text,
+        empresaId: empresaId,
+      );
+    } catch (_) {
+      // ignore logging errors to avoid blocking the chat flow
     }
   }
 
